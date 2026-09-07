@@ -1,0 +1,76 @@
+{
+  "model_name": "Freight Cost Planning",
+  "database": "PLANNING_DEV",
+  "pa_version": "v12",
+  "design_document": "PA Freight Model Design v1.3, 2026-08-28",
+
+  "connection": {
+    "base_url": "https://TENANT.planninganalytics.cloud.ibm.com/api/DATABASE/v0",
+    "user": "apikey",
+    "ssl": true
+  },
+
+  "naming_convention": {
+    "dimension_regex": "^[A-Z]"
+  },
+
+  "dimensions": {
+    "Period": {
+      "hierarchy": "Period",
+      "element_count": 65,
+      "top_element": "Total Year",
+      "top_element_children": 4,
+      "attributes": ["Alias"],
+      "attribute_min_population": 1.0
+    },
+    "Route": {
+      "attributes": ["Alias", "Code"],
+      "attribute_min_population": 0.95
+    },
+    "Product": {},
+    "Version": {},
+    "Measure": {}
+  },
+
+  "cubes": {
+    "FreightCost": {
+      "dimensions": ["Period", "Route", "Product", "Version", "Measure"]
+    },
+    "FreightRates": {
+      "dimensions": ["Period", "Route", "RateMeasure"]
+    }
+  },
+
+  "processes": [
+    "Load.FreightActuals",
+    "Maint.RouteDimension"
+  ],
+
+  "chores": {
+    "Nightly.FreightLoad": {
+      "process_order": ["Maint.RouteDimension", "Load.FreightActuals"]
+    }
+  },
+
+  "sample_cells": [
+    {
+      "cube": "FreightCost",
+      "elements": ["2026-Q1", "MUM-DXB", "Total Product", "Budget", "Amount"],
+      "expect_fed": true,
+      "expected_value": 184250.0,
+      "tolerance": 0.5
+    },
+    {
+      "cube": "FreightRates",
+      "elements": ["2026-01", "MUM-DXB", "Rate per KG"],
+      "expect_fed": true
+    }
+  ],
+
+  "security": {
+    "intentionally_granted": []
+  },
+
+  "memory_budget_bytes": 8000000000,
+  "message_log_window_hours": 24
+}
