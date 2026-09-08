@@ -1,0 +1,650 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<planning_analytics_mcp_tools>
+  
+  <!-- ========================================
+       MCP TOOLS CATALOG
+       Based on IBM Planning Analytics MCP Tools Documentation
+       ======================================== -->
+  
+  <tool_categories>
+    
+    <!-- DISCOVERY TOOLS -->
+    <category name="discovery" description="Explore servers, cubes, dimensions, and members">
+      
+      <tool name="get_available_tm1_servers">
+        <description>Retrieves a list of available TM1 server names</description>
+        <server>ibm-pa-tools-tz-cube, ibm-pa-tools-tz-server</server>
+        <parameters>None</parameters>
+        <returns>List of server names (strings)</returns>
+        <example><![CDATA[
+Input: {}
+Output: ["24Retail", "ca_value_demo", "CarSales", "DemoGuide", ...]
+        ]]></example>
+        <use_when>Starting any data analysis task, need to know available servers</use_when>
+      </tool>
+      
+      <tool name="get_tm1_cubes">
+        <description>Retrieves list of all cubes from a TM1 server with metadata</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+        </parameters>
+        <returns>List of cube metadata objects (name, type, uniqueID, has_rules, has_drillthrough_rules, has_drill_processes, has_cell_security, is_locked)</returns>
+        <example><![CDATA[
+Input: {"server": "24Retail"}
+Output: [
+  {
+    "id": "Revenue",
+    "name": "Revenue",
+    "type": "cube",
+    "uniqueID": "570a069e-e452-4c06-994e-36dca2bcd3e3",
+    "has_rules": true,
+    "has_drillthrough_rules": true,
+    "has_drill_processes": true,
+    "has_cell_security": true,
+    "is_locked": false
+  }
+]
+        ]]></example>
+        <use_when>Need full cube metadata including rules, security, drill processes</use_when>
+      </tool>
+      
+      <tool name="list_cubes_with_ai_analysis_metadata">
+        <description>Retrieves cubes with AI analysis metadata, showing which are pre-analyzed</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="only_analyzed" type="boolean" required="false" default="true">If true, only pre-analyzed cubes are listed</param>
+          <param name="return_summaries" type="boolean" required="false" default="false">If true, includes AI-generated summaries</param>
+        </parameters>
+        <returns>List of cube metadata with is_analyzed flag and optional AI summary</returns>
+        <example><![CDATA[
+Input: {"server": "24Retail", "only_analyzed": false, "return_summaries": true}
+Output: [
+  {
+    "name": "Compensation",
+    "is_analyzed": true,
+    "summary": "Cube contains employee compensation data..."
+  },
+  {
+    "name": "Revenue",
+    "is_analyzed": false,
+    "summary": null
+  }
+]
+        ]]></example>
+        <use_when>CRITICAL: Check before using get_data_from_data_explorer to determine if cube is pre-analyzed</use_when>
+      </tool>
+      
+      <tool name="get_cube_dimensions">
+        <description>Retrieves list of dimension names for a cube</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="cube" type="string" required="true">Cube name</param>
+        </parameters>
+        <returns>List of dimension names (strings)</returns>
+        <example><![CDATA[
+Input: {"server": "24Retail", "cube": "Revenue"}
+Output: ["organization", "Channel", "product", "Month", "Year", "Version", "Revenue"]
+        ]]></example>
+        <use_when>Need to understand cube structure before querying</use_when>
+      </tool>
+      
+      <tool name="get_cube_dimensions_with_metadata">
+        <description>Retrieves dimensions with full metadata including dimension type and unique IDs</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="cube" type="string" required="true">Cube name</param>
+        </parameters>
+        <returns>List of dimension metadata (name, type, dimension_type like GEO/TIME/VERSIONS, uniqueID, default_hierarchy)</returns>
+        <example><![CDATA[
+Input: {"server": "24Retail", "cube": "Revenue"}
+Output: [
+  {
+    "id": "Month",
+    "name": "Month",
+    "type": "dimension",
+    "dimension_type": "TIME",
+    "uniqueID": "59b42bb1-0fab-4a2e-9e05-9225e5903dcd",
+    "unique_name": "[Month]",
+    "is_locked": false,
+    "default_hierarchy": "Month"
+  }
+]
+        ]]></example>
+        <use_when>Need dimension types (GEO, TIME, VERSIONS) or unique identifiers</use_when>
+      </tool>
+      
+      <tool name="get_cube_sample_members">
+        <description>Retrieves sample members from each dimension of a cube</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="cube" type="string" required="true">Cube name</param>
+        </parameters>
+        <returns>List of sample members for each dimension (dimension_name, sample_members with id and optional alias)</returns>
+        <example><![CDATA[
+Input: {"server": "24Retail", "cube": "Revenue"}
+Output: [
+  {
+    "dimension_name": "product",
+    "sample_members": [
+      {"id": "20000", "alias": "Phones"},
+      {"id": "30000", "alias": "PCs"}
+    ]
+  },
+  {
+    "dimension_name": "Year",
+    "sample_members": [
+      {"id": "Y1", "alias": "2025"},
+      {"id": "Y2", "alias": "2026"}
+    ]
+  }
+]
+        ]]></example>
+        <use_when>Need to see available members before constructing queries; use IDs in MDX, aliases for display</use_when>
+        <important>Always use member IDs (not aliases) in MDX queries and tool parameters</important>
+      </tool>
+      
+      <tool name="lookup_potential_members">
+        <description>Searches for dimension members matching a search term</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="cube" type="string" required="true">Cube name</param>
+          <param name="search_term" type="string" required="true">Text to search for</param>
+          <param name="dimension" type="string" required="false">Specific dimension to search (if omitted, searches all)</param>
+        </parameters>
+        <returns>List of matched members with dimension name, member ID, and optional alias, sorted by relevance</returns>
+        <example><![CDATA[
+Input: {"server": "24Retail", "cube": "Revenue", "search_term": "Budget"}
+Output: [
+  {
+    "dimension": "Version",
+    "member": {"id": "Version 1", "alias": "Budget"}
+  },
+  {
+    "dimension": "Version",
+    "member": {"id": "Dashboard", "alias": "Budget."}
+  }
+]
+        ]]></example>
+        <use_when>User mentions a member name that might not be exact; need to find similar members</use_when>
+      </tool>
+      
+      <tool name="get_cubes_that_may_answer_query">
+        <description>Recommends cubes that may contain data to answer a natural language query</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="query" type="string" required="true">Natural language query</param>
+        </parameters>
+        <returns>List of cube names with AI-generated summaries explaining relevance</returns>
+        <example><![CDATA[
+Input: {"server": "24Retail", "query": "how many phones did we sell in 2022"}
+Output: [
+  {
+    "cube_name": "Revenue",
+    "cube_summary": "Cube contains retail data tracking sales of electronics like PCs and phones across time"
+  }
+]
+        ]]></example>
+        <use_when>User hasn't specified cube but describes what data they need</use_when>
+        <note>Only considers pre-analyzed cubes</note>
+      </tool>
+      
+    </category>
+    
+    <!-- QUERY TOOLS -->
+    <category name="query" description="Retrieve data from cubes">
+      
+      <tool name="get_data_from_data_explorer">
+        <description>Retrieves data using natural language query (ONLY works with pre-analyzed cubes)</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="query" type="string" required="true">Natural language query describing what to see</param>
+          <param name="cube" type="string" required="false">Cube name (optional, will auto-select if omitted)</param>
+          <param name="max_rows" type="integer" required="false" default="8">Maximum rows to return</param>
+          <param name="max_columns" type="integer" required="false" default="8">Maximum columns to return</param>
+        </parameters>
+        <returns>
+          <field>cube_name: Selected cube</field>
+          <field>filters: Applied context (markdown table)</field>
+          <field>data: Result data (markdown table)</field>
+          <field>explanation: How query was interpreted</field>
+          <field>state: Encoded state for further analysis</field>
+          <field>alternative_cubes: Other cubes that might answer query</field>
+        </returns>
+        <example><![CDATA[
+Input: {
+  "server": "24Retail",
+  "query": "Show Q4 2025 budget vs actual for total company",
+  "max_rows": 20,
+  "max_columns": 8
+}
+Output: {
+  "cube_name": "Compensation",
+  "filters": "| Dimension | Value |\n| Month | Q4 |\n| Year | 2025 |",
+  "data": "markdown table with results",
+  "explanation": "System selected Q4 in Month dimension...",
+  "state": "encoded_state_string"
+}
+        ]]></example>
+        <use_when>Cube is pre-analyzed (check with list_cubes_with_ai_analysis_metadata first)</use_when>
+        <error_handling>
+          <error>If cube not pre-analyzed, returns error: "Cube [name] was not pre-analyzed"</error>
+          <recovery>Switch to execute_mdx_and_get_view approach</recovery>
+        </error_handling>
+      </tool>
+      
+      <tool name="execute_mdx_and_get_view">
+        <description>Executes MDX query directly (works with ANY cube, pre-analyzed or not)</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="cube" type="string" required="true">Cube name</param>
+          <param name="mdx" type="string" required="true">MDX query string</param>
+          <param name="max_rows" type="integer" required="false" default="8">Maximum rows to return</param>
+          <param name="max_columns" type="integer" required="false" default="8">Maximum columns to return</param>
+        </parameters>
+        <returns>
+          <field>data: Result data (markdown table)</field>
+          <field>state: Encoded state for further analysis</field>
+        </returns>
+        <mdx_structure>
+          <select>Members on COLUMNS</select>
+          <rows>Members on ROWS</rows>
+          <from>Cube name</from>
+          <where>Context filters (optional)</where>
+        </mdx_structure>
+        <example><![CDATA[
+Input: {
+  "server": "24Retail",
+  "cube": "Revenue",
+  "mdx": "SELECT {[product].[product].[Phones],[product].[product].[PCs]} ON COLUMNS, {[Version].[Version].[Budget],[Version].[Version].[Actual]} ON ROWS FROM [Revenue] WHERE ([organization].[organization].[Total Company],[Month].[Month].[Q4],[Year].[Year].[Y1])"
+}
+Output: {
+  "data": "| | 20000 | 30000 |\n| Version 1 | 6,154,989 | 12,790,444 |\n| Actual | 5,956,715 | 12,145,066 |",
+  "state": "encoded_state_string"
+}
+        ]]></example>
+        <use_when>CRITICAL: Use when cube is NOT pre-analyzed, or when you need precise control over query</use_when>
+        <important>This is the fallback when get_data_from_data_explorer fails</important>
+      </tool>
+      
+      <tool name="get_MDX_for_recommended_view">
+        <description>Generates MDX query from natural language (for non-pre-analyzed cubes)</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="query" type="string" required="true">Natural language query</param>
+          <param name="cube" type="string" required="false">Cube name (optional, will auto-select if omitted)</param>
+        </parameters>
+        <returns>
+          <field>cube_name: Selected cube</field>
+          <field>mdx: Generated MDX query string</field>
+          <field>state: Encoded state</field>
+          <field>alternative_cubes: Other cubes that might answer query (if cube was auto-selected)</field>
+        </returns>
+        <example><![CDATA[
+Input: {"server": "24Retail", "cube": "Revenue", "query": "Show sales in may 2023"}
+Output: {
+  "cube_name": "Revenue",
+  "mdx": "SELECT { [product].[product].[phones], [product].[product].[laptops] } ON 0, { [region].[region].[Europe] } ON 1 FROM [Revenue] WHERE ([month].[month].[may], [Year].[Year].[2023])",
+  "state": "encoded_state_string"
+}
+        ]]></example>
+        <use_when>Want AI to construct MDX for you; alternative to manually writing MDX</use_when>
+        <note>Only works with pre-analyzed cubes</note>
+      </tool>
+      
+    </category>
+    
+    <!-- ANALYSIS TOOLS -->
+    <category name="analysis" description="Perform advanced analysis on cube data">
+      
+      <tool name="perform_impact_analysis">
+        <description>Performs key drivers analysis to identify most influential data points</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="state" type="string" required="true">Encoded state from previous query</param>
+          <param name="row_start" type="integer" required="false" default="0">Starting row index</param>
+          <param name="row_span" type="integer" required="false" default="100">Number of rows to analyze</param>
+          <param name="column_start" type="integer" required="false" default="0">Starting column index</param>
+          <param name="column_span" type="integer" required="false" default="100">Number of columns to analyze</param>
+        </parameters>
+        <returns>
+          <field>results: List of key driver points with x,y coordinates</field>
+          <field>x_range: Range of x-axis values (min, max)</field>
+          <field>y_range: Range of y-axis values (min, max)</field>
+          <field>status_info: Optional warnings</field>
+        </returns>
+        <use_when>Need to identify which data points have greatest impact on results</use_when>
+        <follow_up>Use get_impact_analysis_summary to get natural language insights</follow_up>
+      </tool>
+      
+      <tool name="get_impact_analysis_summary">
+        <description>Generates natural language summary from impact analysis results</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="key_drivers" type="array" required="true">List of key driver data points from impact analysis</param>
+        </parameters>
+        <returns>Natural language summary explaining key drivers, their impact, and insights</returns>
+        <use_when>After perform_impact_analysis, to get human-readable insights</use_when>
+      </tool>
+      
+      <tool name="perform_outlier_detection">
+        <description>Detects anomalous data points using multiple algorithms</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="state" type="string" required="true">Encoded state from previous query</param>
+          <param name="row_start" type="integer" required="false" default="0">Starting row index</param>
+          <param name="row_span" type="integer" required="false" default="100">Number of rows to analyze</param>
+          <param name="column_start" type="integer" required="false" default="0">Starting column index</param>
+          <param name="column_span" type="integer" required="false" default="100">Number of columns to analyze</param>
+        </parameters>
+        <returns>
+          <field>results: List of algorithm results, each with outliers, algorithm name, score, summary</field>
+          <field>status_info: Optional warnings</field>
+        </returns>
+        <use_when>Need to identify unusual or anomalous data points</use_when>
+        <follow_up>Use get_outlier_summary for specific algorithm to get natural language explanation</follow_up>
+      </tool>
+      
+      <tool name="get_outlier_summary">
+        <description>Generates natural language summary for outliers detected by specific algorithm</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="outliers" type="array" required="true">List of detected outlier cells</param>
+          <param name="algorithm" type="string" required="true">Name of detection algorithm used</param>
+        </parameters>
+        <returns>Natural language summary explaining outliers, patterns, and insights</returns>
+        <use_when>After perform_outlier_detection, to get detailed explanations for specific algorithm</use_when>
+      </tool>
+      
+      <tool name="generate_exploration_analysis_report">
+        <description>Generates comprehensive PDF report with visualizations and AI-generated insights</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="state" type="string" required="true">Encoded state from previous query</param>
+          <param name="row_range_start" type="integer" required="false" default="0">Starting row index</param>
+          <param name="row_range_span" type="integer" required="false" default="120">Number of rows to include</param>
+          <param name="column_range_start" type="integer" required="false" default="0">Starting column index</param>
+          <param name="column_range_span" type="integer" required="false" default="120">Number of columns to include</param>
+          <param name="generate_summary" type="boolean" required="false" default="true">Whether to include AI-generated summary</param>
+        </parameters>
+        <returns>Base64-encoded PDF file with analysis report</returns>
+        <use_when>Need comprehensive report with visualizations for presentation or documentation</use_when>
+      </tool>
+      
+    </category>
+    
+    <!-- MANAGEMENT TOOLS -->
+    <category name="management" description="Manage cubes and views">
+      
+      <tool name="create_tm1_cube">
+        <description>Creates a new cube on TM1 server</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="cube_name" type="string" required="true">Name for new cube</param>
+          <param name="dimensions" type="array" required="true">List of dimension names (dimensions must already exist)</param>
+        </parameters>
+        <returns>Success message</returns>
+        <use_when>Need to create new cube programmatically</use_when>
+        <important>Dimensions must already exist on the server</important>
+      </tool>
+      
+      <tool name="delete_tm1_cube">
+        <description>Deletes an existing cube from TM1 server</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="cube_name" type="string" required="true">Name of cube to delete</param>
+        </parameters>
+        <returns>Success message</returns>
+        <use_when>Need to delete cube programmatically</use_when>
+        <warning>Permanent operation - confirm with user first</warning>
+      </tool>
+      
+      <tool name="save_mdx_view">
+        <description>Saves a view to a cube using either MDX or view state</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="name" type="string" required="true">View name</param>
+          <param name="cube" type="string" required="false">Cube name (required when using MDX)</param>
+          <param name="mdx" type="string" required="false">MDX query (required when not using state)</param>
+          <param name="state" type="string" required="false">Encoded state (required when not using MDX)</param>
+          <param name="private" type="boolean" required="false" default="false">Whether view should be private</param>
+          <param name="overwrite_existing" type="boolean" required="false" default="false">Whether to overwrite if exists</param>
+        </parameters>
+        <returns>Saved view metadata</returns>
+        <use_when>Need to persist a view for later use</use_when>
+        <note>Provide either MDX or state, not both</note>
+      </tool>
+      
+      <tool name="get_saved_view">
+        <description>Retrieves a previously saved view</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="cube" type="string" required="true">Cube name</param>
+          <param name="view" type="string" required="true">View name</param>
+          <param name="private" type="boolean" required="false" default="false">Whether view is private</param>
+          <param name="row_start" type="integer" required="false" default="0">Starting row</param>
+          <param name="row_span" type="integer" required="false" default="120">Number of rows</param>
+          <param name="column_start" type="integer" required="false" default="0">Starting column</param>
+          <param name="column_span" type="integer" required="false" default="30">Number of columns</param>
+        </parameters>
+        <returns>
+          <field>data: View data (markdown table)</field>
+          <field>state: Encoded state for further operations</field>
+        </returns>
+        <use_when>Need to load previously saved view</use_when>
+      </tool>
+      
+      <tool name="list_cube_views">
+        <description>Lists all views for a specific cube</description>
+        <server>ibm-pa-tools-tz-cube</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="cube" type="string" required="true">Cube name</param>
+        </parameters>
+        <returns>List of view metadata (name, type, view_type, uniqueID)</returns>
+        <use_when>Need to see available views for a cube</use_when>
+      </tool>
+      
+    </category>
+    
+    <!-- PROCESS MANAGEMENT TOOLS -->
+    <category name="process_management" description="Create, update, execute, and monitor TM1 TurboIntegrator processes">
+      
+      <tool name="get_tm1_processes">
+        <description>Retrieves detailed list of TM1 processes with parameters and metadata</description>
+        <server>ibm-pa-tools-tz-server</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+        </parameters>
+        <returns>List of process objects with name, parameters, data types, default values</returns>
+        <use_when>Need to discover available processes or audit TM1 automation scripts</use_when>
+      </tool>
+      
+      <tool name="get_tm1_process_details">
+        <description>Retrieves detailed metadata for specific TM1 process including script logic</description>
+        <server>ibm-pa-tools-tz-server</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="process_name" type="string" required="true">Process name</param>
+        </parameters>
+        <returns>TIProcess object with full structure, parameters, procedures (Prolog, Metadata, Data, Epilog)</returns>
+        <use_when>Need to inspect process structure, debug, or understand existing automation</use_when>
+      </tool>
+      
+      <tool name="create_tm1_process">
+        <description>Creates new empty TM1 process on specified server</description>
+        <server>ibm-pa-tools-tz-server</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="process_name" type="string" required="true">Name for new process</param>
+        </parameters>
+        <returns>Created process details with empty procedures and no parameters</returns>
+        <use_when>Starting to build new TI process for dimension/cube creation or data loading</use_when>
+        <note>Creates empty process - use update_tm1_process to add code</note>
+      </tool>
+      
+      <tool name="update_tm1_process">
+        <description>Updates existing TM1 process with procedure code and parameters</description>
+        <server>ibm-pa-tools-tz-server</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="process_name" type="string" required="true">Process name</param>
+          <param name="prolog_procedure" type="string" required="false" default="">Prolog procedure code</param>
+          <param name="metadata_procedure" type="string" required="false" default="">Metadata procedure code</param>
+          <param name="data_procedure" type="string" required="false" default="">Data procedure code</param>
+          <param name="epilog_procedure" type="string" required="false" default="">Epilog procedure code</param>
+          <param name="parameters" type="array" required="false">List of parameter objects with Name, Type, Value, Prompt</param>
+        </parameters>
+        <returns>Response with syntax_errors array (empty if successful)</returns>
+        <use_when>Adding or modifying TI process code; validating syntax</use_when>
+        <important>Check syntax_errors in response - must be empty for success</important>
+        <parameter_format>
+          <example>[{"Name": "param1", "Type": "Numeric", "Value": 0, "Prompt": "first parameter"}]</example>
+          <types>String, Numeric</types>
+        </parameter_format>
+      </tool>
+      
+      <tool name="delete_tm1_process">
+        <description>Deletes existing TM1 process from server</description>
+        <server>ibm-pa-tools-tz-server</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="process_name" type="string" required="true">Process name to delete</param>
+        </parameters>
+        <returns>Success message</returns>
+        <use_when>Cleaning up test processes or removing obsolete automation</use_when>
+        <warning>Permanent operation - confirm with user first</warning>
+      </tool>
+      
+      <tool name="execute_tm1_processes_asynchronously">
+        <description>Executes TM1 process asynchronously without waiting for completion</description>
+        <server>ibm-pa-tools-tz-server</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="process_name" type="string" required="true">Process name to execute</param>
+          <param name="parameters" type="array" required="false">List of parameter objects with Name and Value</param>
+        </parameters>
+        <returns>Immediate response indicating request was received</returns>
+        <use_when>Executing dimension/cube creation, data loading, or any TI process</use_when>
+        <note>Non-blocking - use get_tm1_server_process_status to check completion</note>
+        <parameter_format>
+          <example>[{"Name": "pParent", "Value": "sales"}, {"Name": "pNewNumber", "Value": 23}]</example>
+          <empty_params>Pass [] if no parameters needed</empty_params>
+        </parameter_format>
+      </tool>
+      
+      <tool name="get_tm1_server_process_threads">
+        <description>Retrieves list of active user threads for process executions on server</description>
+        <server>ibm-pa-tools-tz-server</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+        </parameters>
+        <returns>List of active thread objects with type, function name, thread ID, metadata</returns>
+        <use_when>Monitoring server activity or checking for running processes</use_when>
+      </tool>
+      
+      <tool name="get_tm1_server_process_status">
+        <description>Retrieves current status of specific TM1 process execution</description>
+        <server>ibm-pa-tools-tz-server</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="process_name" type="string" required="true">Process name</param>
+        </parameters>
+        <returns>List of threads associated with process including ID, type, state (running, idle, etc.)</returns>
+        <use_when>Checking if asynchronously executed process has completed</use_when>
+        <pattern>Poll this after execute_tm1_processes_asynchronously until state is not "running"</pattern>
+      </tool>
+      
+      <tool name="cancel_tm1_process_execution">
+        <description>Cancels running TM1 process execution</description>
+        <server>ibm-pa-tools-tz-server</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="process_name" type="string" required="true">Process name to cancel</param>
+        </parameters>
+        <returns>Response indicating cancellation result</returns>
+        <use_when>Need to stop long-running or problematic process</use_when>
+      </tool>
+      
+      <tool name="get_tm1_server_process_execution_error_logs">
+        <description>Retrieves latest execution or error log for a process</description>
+        <server>ibm-pa-tools-tz-server</server>
+        <parameters>
+          <param name="server" type="string" required="true">TM1 server name</param>
+          <param name="process_name" type="string" required="true">Process name</param>
+        </parameters>
+        <returns>Content of latest log file (error or execution log)</returns>
+        <use_when>Debugging process failures or verifying successful execution</use_when>
+        <log_formats>
+          <format>TM1ProcessError_[timestamp]_[code]_[process_name].log</format>
+          <format>TM1ProcessError_[timestamp]_[code]_[process_name].jsonl</format>
+          <format>ProcessLog_[timestamp]_[code]_[process_name].jsonl</format>
+        </log_formats>
+        <success_indicator>Empty or no error logs found</success_indicator>
+      </tool>
+      
+    </category>
+    
+  </tool_categories>
+
+  <!-- ========================================
+       TOOL SELECTION GUIDELINES
+       ======================================== -->
+  <tool_selection_guidelines>
+    
+    <guideline scenario="starting_data_analysis">
+      <step>1. Call get_available_tm1_servers to see available servers</step>
+      <step>2. If user hasn't specified cube, call get_cubes_that_may_answer_query or list_cubes_with_ai_analysis_metadata</step>
+      <step>3. Call get_cube_dimensions to understand structure</step>
+      <step>4. Call get_cube_sample_members to see available members</step>
+      <step>5. Proceed to query workflow</step>
+    </guideline>
+    
+    <guideline scenario="querying_cube_data">
+      <decision>Is cube pre-analyzed?</decision>
+      <check>Call list_cubes_with_ai_analysis_metadata to check</check>
+      <if_yes>
+        <step>Use get_data_from_data_explorer with natural language query</step>
+      </if_yes>
+      <if_no>
+        <step>Option A: Use get_MDX_for_recommended_view to generate MDX, then execute_mdx_and_get_view</step>
+        <step>Option B: Construct MDX manually and use execute_mdx_and_get_view directly</step>
+      </if_no>
+    </guideline>
+    
+    <guideline scenario="member_lookup">
+      <when>User mentions member name that might not be exact</when>
+      <step>Call lookup_potential_members with search term</step>
+      <step>Present matches to user or use best match</step>
+    </guideline>
+    
+    <guideline scenario="advanced_analysis">
+      <prerequisite>Must have state from previous query (get_data_from_data_explorer or execute_mdx_and_get_view)</prerequisite>
+      <options>
+        <option>perform_impact_analysis → get_impact_analysis_summary for key drivers</option>
+        <option>perform_outlier_detection → get_outlier_summary for anomalies</option>
+        <option>generate_exploration_analysis_report for comprehensive PDF</option>
+      </options>
+    </guideline>
+    
+  </tool_selection_guidelines>
+
+</planning_analytics_mcp_tools>
+
+<!-- Made with Bob -->

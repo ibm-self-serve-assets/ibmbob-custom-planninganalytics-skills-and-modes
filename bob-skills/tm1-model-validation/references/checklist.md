@@ -2,8 +2,8 @@
 
 Ordered by cost. Each item is marked:
 
-- `[auto]` — covered by `scripts/tm1_validate.py`
-- `[semi]` — script produces the evidence, you make the call
+- `[auto]` — performed by Bob using Planning Analytics MCP tools (`get_tm1_cubes`, `get_cube_dimensions`, `execute_mdx_and_get_view`, etc.) or, in a CI pipeline without Bob, by `scripts/tm1_validate.py`
+- `[semi]` — MCP tool produces the evidence, you make the call
 - `[human]` — requires judgment or an out-of-TM1 comparison
 
 and, for mode:
@@ -20,11 +20,11 @@ in both modes.
 
 ## Gate 1 — Dimensions
 
-- `[auto]` `[doc]` All dimensions in the design doc exist on the server, spelled exactly as designed
+- `[auto]` `[doc]` All dimensions in the design doc exist on the server, spelled exactly as designed — verified via `get_cube_dimensions` for each cube in scope
 - `[auto]` `[doc]` Naming convention followed (prefix/case rules from the design doc)
 - `[auto]` No duplicate element names within a dimension
 - `[auto]` No orphaned elements — every N element is a child in at least one edge
-- `[semi]` `[doc]` Hierarchy correct — each C element rolls up the leaves the design says it should. The script dumps parent→child edges; compare against the doc
+- `[semi]` `[doc]` Hierarchy correct — each C element rolls up the leaves the design says it should. Use `execute_mdx_and_get_view` to dump parent→child edges; compare against the doc
 - `[semi]` `[doc]` Top-level consolidation sums all expected children (check the child count and the weights — a `-1` weight where the doc says `+1` is a classic silent defect)
 - `[auto]` Attributes defined and populated: aliases, codes, sort orders. Report population rate, not just existence — a defined-but-empty alias attribute is a FAIL
 - `[human]` Alias attribute displays correctly in a PAW view
@@ -33,9 +33,9 @@ in both modes.
 
 ## Gate 2 — Cube structure
 
-- `[auto]` `[doc]` Cube exists with the correct dimension order (order, not just membership — it drives sparsity and MDX)
+- `[auto]` `[doc]` Cube exists with the correct dimension order (order, not just membership — it drives sparsity and MDX) — verified via `get_cube_dimensions_with_metadata`
 - `[auto]` `[doc]` Dimension count and names match the design doc
-- `[auto]` Cube is not locked
+- `[auto]` Cube is not locked — check `is_locked` flag returned by `get_tm1_cubes`
 - `[semi]` Sparsity is plausible. Compute `populated cells / product of dimension cardinalities`. A near-100% dense cube across high-cardinality dimensions means the design is wrong, not that the load worked well. Record the number as INFO even when it passes
 
 ## Gate 3 — Data entry and basic writes
@@ -48,46 +48,46 @@ Every check here writes. **Record the original value, restore it afterwards, and
 
 ## Gate 4 — Rules
 
-- `[auto]` Rules file compiles — no `RULES ERROR` in the message log at load
+- `[auto]` Rules file compiles — call `get_tm1_process_details` on the cube's rules object and check for a `RULES ERROR` signature; also call `get_tm1_server_process_execution_error_logs`
 - `[auto]` `SKIPCHECK` present whenever feeders are defined
 - `[auto]` `FEEDSTRINGS` is the **first line**, before `SKIPCHECK`, whenever any rule produces a string
 - `[auto]` Statement ordering: `FEEDSTRINGS` → `SKIPCHECK` → rules → `FEEDERS`
-- `[semi]` `[doc]` A sample N-level calculation returns the correct value at a known intersection
-- `[semi]` `[doc]` A sample C-level consolidation returns the correct rollup
+- `[semi]` `[doc]` A sample N-level calculation returns the correct value at a known intersection — use `execute_mdx_and_get_view`
+- `[semi]` `[doc]` A sample C-level consolidation returns the correct rollup — use `execute_mdx_and_get_view`
 - `[semi]` `STET` areas consolidate using default TM1 aggregation — not returning zero
-- `[semi]` `[doc]` `DB()` cross-cube lookups return the right value; test against a known rate or driver
+- `[semi]` `[doc]` `DB()` cross-cube lookups return the right value; test against a known rate or driver — use `execute_mdx_and_get_view` on the source cube
 - `[semi]` No rule silently overrides user input at a cell where input should be preserved
 
 ## Gate 5 — Feeders
 
-- `[semi]` Rule-calculated cells are actually fed. Use `check_cell_feeders` on the specific intersection (v12 and recent v11); Architect → Rules → Feeder Trace on older v11
+- `[semi]` Rule-calculated cells are actually fed — query the consolidated cell and its leaf children via `execute_mdx_and_get_view`; a parent at zero while children hold values is the missing-feeder signature
 - `[semi]` No consolidated cell shows zero where the design says it carries a rule-derived value
 - `[human]` Zero-suppression hides genuinely empty cells but does not hide fed cells that legitimately hold zero
 - `[auto]` Feeder breadth heuristic — flag feeders whose source references `[]` across a whole high-cardinality dimension where a narrower scope would do. Over-broad feeders are the usual cause of memory blowup and slow consolidations
 
 ## Gate 6 — TurboIntegrator processes
 
-- `[semi]` Process executes cleanly on first run
-- `[auto]` No `TM1ProcessError_*.log` produced by a clean run
+- `[semi]` Process executes cleanly on first run — check via `execute_tm1_processes_asynchronously` then poll `get_tm1_server_process_status`
+- `[auto]` No `TM1ProcessError_*.log` produced by a clean run — verified via `get_tm1_server_process_execution_error_logs`
 - `[human]` `[doc]` Loaded data reconciles to source — compare at least one aggregate **and** the record count against the source file line count
-- `[semi]` Dimension-maintenance TIs create elements with the correct type (N/C/S) and parent assignment
+- `[semi]` Dimension-maintenance TIs create elements with the correct type (N/C/S) and parent assignment — verify via `get_cube_sample_members` after the TI runs
 - `[semi]` Parameter validation — an empty or invalid parameter produces a clean error, not a silent bad load. Test this explicitly; it is the most commonly skipped check and the most commonly regretted
-- `[auto]` Prolog locks and Epilog unlocks balance — no orphaned locks after execution
+- `[auto]` Prolog locks and Epilog unlocks balance — inspect `get_tm1_process_details` for `CubeLockOn`/`CubeLockOff` pairing
 - `[semi]` Process runs correctly when invoked from its chore, not only when run manually
 
 ## Gate 7 — Calculation correctness
 
 The only gate that can catch a model that is structurally perfect and numerically wrong. Compare against something computed **outside** TM1.
 
-- `[human]` `[doc]` At least 3 calculated values spot-checked against Excel or the source system
+- `[human]` `[doc]` At least 3 calculated values spot-checked against Excel or the source system — retrieve values via `execute_mdx_and_get_view`
 - `[human]` `[doc]` Driver-based: Rate × Quantity = Amount, verified for at least one route/product/period
 - `[human]` `[doc]` Variance: Actual − Budget = Variance, with the sign convention confirmed against the design doc
-- `[semi]` Time rollups: months sum to quarters, quarters to year
+- `[semi]` Time rollups: months sum to quarters, quarters to year — use `execute_mdx_and_get_view` to pull parent and children in one query
 - `[semi]` Cross-cube lookups match the value stored in the source cube
 
 ## Gate 8 — Views and PAW
 
-- `[semi]` Default views load without error
+- `[semi]` Default views load without error — list via `list_cube_views`, retrieve via `get_saved_view`
 - `[human]` Zero-suppression behaves — no unexpectedly empty rows, no missing data
 - `[semi]` Subset selections return the correct members
 - `[semi]` MDX-based dynamic subsets re-evaluate correctly after a data change (change data, re-evaluate, confirm membership moved)
@@ -97,7 +97,7 @@ The only gate that can catch a model that is structurally perfect and numericall
 
 - `[semi]` Admin can read and write all cubes
 - `[human]` `[doc]` A non-admin test user has exactly the intended access — can read where intended, **cannot** write where restricted. Test as that user; inspecting `}CubeSecurity` is not the same as trying it
-- `[auto]` New objects default to `None` for non-admin groups until explicitly granted
+- `[auto]` New objects default to `None` for non-admin groups until explicitly granted — inspect `get_tm1_cubes` metadata for `has_cell_security` flag
 - `[semi]` Cell-level security overrides apply — a restricted cell rejects a write from a non-privileged user
 
 Any security finding is a BLOCKER by default. Downgrade only with an explicit statement from the design doc.
@@ -105,19 +105,19 @@ Any security finding is a BLOCKER by default. Downgrade only with an explicit st
 ## Gate 10 — Performance sanity
 
 - `[semi]` A full-model consolidation view loads in acceptable time. A severe slowdown here is a feeder defect until proven otherwise — go back to gate 5 rather than tuning
-- `[auto]` Server memory after full load is within the expected range for the model size
+- `[auto]` Server memory after full load is within the expected range — verify via `get_tm1_metrics` (filter by `CubeName`)
 - `[auto]` No rules firing at `C:` level without a corresponding `SKIPCHECK` (forces dense consolidation)
 
 ## Gate 11 — Chores and automation
 
-- `[auto]` `[doc]` Chore scheduled with the correct process order and parameter values
+- `[auto]` `[doc]` Chore scheduled with the correct process order and parameter values — verified via `get_tm1_processes` (look up the chore object)
 - `[semi]` Manual chore run produces the same outcome as running the processes individually
 - `[semi]` Error handling configured — a failed process does not let the chore continue loading downstream processes with bad data. Test by deliberately failing the first process
 
 ## Gate 12 — Documentation and handover
 
 - `[semi]` `[doc]` Design doc matches what was built: cube names, dimension names, member counts. Where they diverge, the divergence is a finding — do not retro-edit the doc to match the build
-- `[auto]` Each TI has a Prolog comment block stating purpose, parameters and dependencies
+- `[auto]` Each TI has a Prolog comment block stating purpose, parameters and dependencies — verified via `get_tm1_process_details`
 - `[human]` Known issues and deferred scope are recorded rather than left undocumented
 
 ---
@@ -130,9 +130,9 @@ See `references/intrinsic-checks.md` for what a clean result here does and does 
 
 ## Gate 13 — Structural integrity
 
-- `[auto]` No circular consolidation (a cycle is invalid under every possible design)
-- `[auto]` No empty dimension
-- `[auto]` No orphan dimension — every dimension is used by at least one cube
+- `[auto]` No circular consolidation (a cycle is invalid under every possible design) — detected from `get_cube_dimensions` hierarchy traversal
+- `[auto]` No empty dimension — detected from `get_cube_sample_members` returning no members
+- `[auto]` No orphan dimension — every dimension is used by at least one cube — cross-reference `get_tm1_cubes` with known dimensions
 - `[auto]` No consolidation with exactly one child (almost always a dimension-build accident)
 - `[auto]` No orphaned leaf elements
 
@@ -141,8 +141,9 @@ See `references/intrinsic-checks.md` for what a clean result here does and does 
 **The strongest check available without a design document.**
 
 - `[auto]` For every sampled consolidated cell that is *not* rule-derived, the cell equals
-  the weighted sum of its children. TM1's own aggregation supplies the expected value, so
-  no document is required
+  the weighted sum of its children. Query via `execute_mdx_and_get_view` — include the
+  parent and all direct children in one MDX query and compare. TM1's own aggregation
+  supplies the expected value, so no document is required
 - `[auto]` Rule-derived consolidations are identified and excluded from the arithmetic
   assertion rather than being failed
 - A parent reading **zero while children hold values** is the missing-feeder signature —
@@ -153,23 +154,21 @@ See `references/intrinsic-checks.md` for what a clean result here does and does 
 
 ## Gate 15 — Rule and feeder pairing
 
-- `[auto]` A cube with rule statements has a `FEEDERS` section (BLOCKER if absent — with
-  `SKIPCHECK` those values disappear from consolidations)
+- `[auto]` A cube with rule statements has a `FEEDERS` section — inspect via `get_tm1_process_details` on the rules object (BLOCKER if absent — with `SKIPCHECK` those values disappear from consolidations)
 - `[auto]` The `FEEDERS` section is not empty
-- `[auto]` Feeder-to-rule ratio is plausible (heuristic; confirm with a cell feeder check)
+- `[auto]` Feeder-to-rule ratio is plausible (heuristic; confirm with a cell feeder check via `execute_mdx_and_get_view`)
 
 ## Gate 16 — Process hygiene
 
-- `[auto]` Error handling present — `ItemReject` / `ProcessError` / `ProcessQuit` / `ItemSkip`
-- `[auto]` Every parameter validated before use
-- `[auto]` No hardcoded filesystem paths
-- `[auto]` No embedded credentials (BLOCKER)
-- `[auto]` `CubeLockOn` / `CubeLockOff` balanced
+- `[auto]` Error handling present — `ItemReject` / `ProcessError` / `ProcessQuit` / `ItemSkip` — inspect `get_tm1_process_details`
+- `[auto]` Every parameter validated before use — inspect `get_tm1_process_details`
+- `[auto]` No hardcoded filesystem paths — inspect `get_tm1_process_details`
+- `[auto]` No embedded credentials (BLOCKER) — inspect `get_tm1_process_details`
+- `[auto]` `CubeLockOn` / `CubeLockOff` balanced — inspect `get_tm1_process_details`
 - `[auto]` Processes not referenced by any chore are surfaced for confirmation
 
 ## Gate 17 — Naming consistency
 
-- `[auto]` Convention inferred from the model's **own** dominant name shape, then outliers
-  flagged. Needs ≥3 objects of a kind; reports NOT_VERIFIED below that
+- `[auto]` Convention inferred from the model's **own** dominant name shape by comparing objects returned by `get_tm1_cubes` and `get_tm1_processes`, then outliers flagged. Needs ≥3 objects of a kind; reports NOT_VERIFIED below that
 - Reported as MINOR. An inferred convention is not an authority — if a design document
   exists, gate 1 `[doc]` supersedes this

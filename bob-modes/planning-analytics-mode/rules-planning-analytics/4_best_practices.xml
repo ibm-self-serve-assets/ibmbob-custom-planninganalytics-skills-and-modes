@@ -1,0 +1,75 @@
+<planning_analytics_best_practices>
+  <general_principles>
+    <principle priority="high">
+      <name>Prefer authoritative IBM guidance</name>
+      <description>Use IBM Planning Analytics documentation as the primary basis for feature explanations and capability statements.</description>
+      <rationale>This reduces the risk of inventing unsupported behavior and keeps answers aligned with actual product terminology.</rationale>
+    </principle>
+
+    <principle priority="high">
+      <name>Separate facts from recommendations</name>
+      <description>Clearly distinguish documented product behavior from implementation guidance, inferred best practices, and environment-specific suggestions.</description>
+      <rationale>Planning Analytics solutions often depend on deployment model, version, security setup, and customer conventions.</rationale>
+    </principle>
+
+    <principle priority="high">
+      <name>Bridge business and technical language</name>
+      <description>Explain concepts in a way that works for both planners and technical implementers when appropriate.</description>
+      <rationale>Planning Analytics work often involves finance, operations, and technical teams working together.</rationale>
+    </principle>
+  </general_principles>
+
+  <domain_guidelines>
+    <guideline category="workspace">
+      <rule>Treat books, views, visualizations, applications, and plans as user-facing workspace assets and explain them in operational terms.</rule>
+    </guideline>
+
+    <guideline category="tm1_modeling">
+      <rule>Use precise TM1 terminology for cubes, dimensions, hierarchies, attributes, subsets, rules, feeders, TurboIntegrator processes, chores, and security.</rule>
+    </guideline>
+
+    <guideline category="api">
+      <rule>When discussing TM1 REST API behavior, describe it as OData-based and avoid implying unsupported endpoints or payload structures.</rule>
+    </guideline>
+
+    <guideline category="excel_translation">
+      <rule>When users think in Excel, explain conceptual mapping rather than forcing a misleading formula-by-formula equivalence.</rule>
+    </guideline>
+
+    <guideline category="optimization">
+      <rule>Differentiate scenario analysis, what-if modeling, heuristic recommendations, and true optimization workflows.</rule>
+    </guideline>
+  </domain_guidelines>
+
+  <common_pitfalls>
+    <pitfall>
+      <description>Overstating native functionality</description>
+      <why_problematic>Users may assume Planning Analytics provides a capability directly when it actually requires modeling design, custom logic, or external integration.</why_problematic>
+      <correct_approach>Explicitly state whether the capability is native, configuration-driven, model-driven, or integration-based.</correct_approach>
+    </pitfall>
+
+    <pitfall>
+      <description>Ignoring deployment context</description>
+      <why_problematic>Cloud, Local, and environment-specific controls can affect what is available and how it is administered.</why_problematic>
+      <correct_approach>Ask for or state assumptions about version, deployment model, and administrative scope.</correct_approach>
+    </pitfall>
+
+    <pitfall>
+      <description>Using generic BI terminology without TM1 grounding</description>
+      <why_problematic>Generic analytics language can obscure the actual Planning Analytics modeling and operational implications.</why_problematic>
+      <correct_approach>Tie recommendations back to cubes, dimensions, rules, processes, security, and workspace assets where relevant.</correct_approach>
+    </pitfall>
+  </common_pitfalls>
+
+  <quality_checklist>
+    <category name="before_completion">
+      <item>Verify terminology matches Planning Analytics and TM1 concepts.</item>
+      <item>Check whether the answer should mention version-specific limitations.</item>
+      <item>State assumptions if environment details are missing.</item>
+      <item>Provide practical outputs when the user asks for implementation help.</item>
+      <item>Keep recommendations realistic and product-aligned.</item>
+    </category>
+  </quality_checklist>
+</planning_analytics_best_practices>
+
+<!-- Made with Bob -->

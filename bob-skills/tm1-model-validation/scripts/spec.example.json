@@ -4,11 +4,7 @@
   "pa_version": "v12",
   "design_document": "PA Freight Model Design v1.3, 2026-08-28",
 
-  "connection": {
-    "base_url": "https://TENANT.planninganalytics.cloud.ibm.com/api/DATABASE/v0",
-    "user": "apikey",
-    "ssl": true
-  },
+  "_note": "No connection block needed when validating through Bob — MCP tools connect automatically. Add a connection block only for CI pipeline runs of tm1_validate.py (see README-spec.md).",
 
   "naming_convention": {
     "dimension_regex": "^[A-Z]"

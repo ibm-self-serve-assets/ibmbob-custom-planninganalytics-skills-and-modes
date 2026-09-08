@@ -56,9 +56,11 @@ while its children hold values is the signature of a **missing feeder**, and it 
 otherwise silent — no error, no log entry, just a number that is too low. A wrong
 edge weight shows up here too.
 
-The harness samples rather than sweeping exhaustively (`intrinsic.consolidation_samples`,
-default 12). Raise it when a run is cheap; a sample that finds nothing is weaker evidence
-than a sweep that finds nothing, and the report should say which you ran.
+When using MCP tools, use `execute_mdx_and_get_view` to query a consolidated cell alongside
+its children in a single MDX statement; if the parent differs from the weighted sum of
+children and the cell is not rule-derived, that is gate 14 FAIL. Sample broadly rather than
+sweeping exhaustively — aim for at least 12 sampled consolidations; a sample that finds
+nothing is weaker evidence than a sweep, and the report should say which you ran.
 
 ## What is structurally unavailable
 
@@ -87,8 +89,8 @@ configurations, because a design document supplied by one arm is a biased oracle
 the other.
 
 1. Run intrinsic mode against each model with **identical settings** — same sample
-   count, same tolerance, same gate list. A comparison across different settings is not
-   a comparison.
+   count, same tolerance, same gate list. Use the same MCP server tool calls and MDX
+   patterns against each. A comparison across different settings is not a comparison.
 2. Compare **defect counts by gate and severity**, not verdicts. Verdicts compress away
    the information you need.
 3. Report the NOT_VERIFIED count per model alongside the defect count. A model whose

@@ -1,0 +1,950 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<planning_analytics_workflows>
+  
+  <!-- ========================================
+       WORKFLOW CATALOG
+       Comprehensive workflows for all Planning Analytics tasks
+       ======================================== -->
+
+  <!-- DISCOVERY WORKFLOW -->
+  <workflow id="discovery" name="Data Discovery" type="foundational">
+    <description>Explore available servers, cubes, dimensions, and members before querying data</description>
+    <when_to_use>Starting any data analysis task; user needs to understand available data</when_to_use>
+    
+    <steps>
+      <step order="1" name="List Servers">
+        <tool>get_available_tm1_servers</tool>
+        <purpose>Identify available TM1 servers</purpose>
+        <output>List of server names</output>
+        <decision>
+          <if condition="user_specified_server">Use that server</if>
+          <if condition="only_one_server">Use it automatically</if>
+          <if condition="multiple_servers">Present list and ask user to choose</if>
+          <if condition="user_mentions_data_suggesting_server">Infer and use that server (e.g., "24Retail")</if>
+        </decision>
+      </step>
+      
+      <step order="2" name="Explore Cubes">
+        <tool_options>
+          <option priority="1">
+            <tool>list_cubes_with_ai_analysis_metadata</tool>
+            <when>Need to know which cubes are pre-analyzed (CRITICAL for query planning)</when>
+            <parameters>
+              <param name="only_analyzed">false (to see all cubes)</param>
+              <param name="return_summaries">true (to get AI summaries)</param>
+            </parameters>
+          </option>
+          <option priority="2">
+            <tool>get_tm1_cubes</tool>
+            <when>Need full cube metadata (rules, security, drill processes)</when>
+          </option>
+          <option priority="3">
+            <tool>get_cubes_that_may_answer_query</tool>
+            <when>User has specific question and needs cube recommendation</when>
+          </option>
+        </tool_options>
+        <decision>
+          <if condition="user_specified_cube">Use that cube</if>
+          <if condition="user_described_data_need">Use get_cubes_that_may_answer_query</if>
+          <if condition="need_to_browse">Use list_cubes_with_ai_analysis_metadata with summaries</if>
+        </decision>
+      </step>
+      
+      <step order="3" name="Understand Cube Structure">
+        <tool>get_cube_dimensions</tool>
+        <purpose>Get list of dimensions for the cube</purpose>
+        <output>Dimension names</output>
+        <follow_up>
+          <tool>get_cube_dimensions_with_metadata</tool>
+          <when>Need dimension types (GEO, TIME, VERSIONS) or unique IDs</when>
+        </follow_up>
+      </step>
+      
+      <step order="4" name="Explore Dimension Members">
+        <tool>get_cube_sample_members</tool>
+        <purpose>See sample members from each dimension</purpose>
+        <output>Member IDs and aliases for each dimension</output>
+        <important>Use member IDs (not aliases) in queries</important>
+        <follow_up>
+          <tool>lookup_potential_members</tool>
+          <when>Need to find specific members by search term</when>
+        </follow_up>
+      </step>
+    </steps>
+    
+    <common_patterns>
+      <pattern name="server_selection">
+        <when>User hasn't specified server</when>
+        <action>Call get_available_tm1_servers</action>
+        <action>If only one server, use it automatically</action>
+        <action>If multiple servers, present list and ask user to choose</action>
+        <action>If user mentions data suggesting server (e.g., "24Retail"), use that</action>
+      </pattern>
+      
+      <pattern name="cube_selection">
+        <when>User hasn't specified cube but describes data need</when>
+        <action>Call get_cubes_that_may_answer_query with user's description</action>
+        <action>Present top matches with summaries</action>
+        <action>Let user choose or auto-select if confidence is high</action>
+      </pattern>
+      
+      <pattern name="member_lookup">
+        <when>User mentions dimension member that might not be exact</when>
+        <action>Call lookup_potential_members with search term</action>
+        <action>Present matches sorted by relevance</action>
+        <action>Use best match or ask user to choose</action>
+      </pattern>
+    </common_patterns>
+  </workflow>
+
+  <!-- QUERY WORKFLOW -->
+  <workflow id="query" name="Data Query" type="core">
+    <description>Retrieve data from cubes using adaptive approach based on cube pre-analysis status</description>
+    <when_to_use>User needs to see cube data; performing variance analysis; any data retrieval task</when_to_use>
+    
+    <decision_tree>
+      <question>Is the cube pre-analyzed?</question>
+      <check_method>
+        <tool>list_cubes_with_ai_analysis_metadata</tool>
+        <look_for>is_analyzed: true</look_for>
+        <note>ALWAYS check this before attempting get_data_from_data_explorer</note>
+      </check_method>
+      
+      <branch condition="cube_is_pre_analyzed">
+        <approach name="Natural Language Query">
+          <tool>get_data_from_data_explorer</tool>
+          <parameters>
+            <param name="server">TM1 server name</param>
+            <param name="cube">Cube name (optional if auto-selecting)</param>
+            <param name="query">Natural language query describing what to see</param>
+            <param name="max_rows">Default 8, increase for more data</param>
+            <param name="max_columns">Default 8, increase for more data</param>
+          </parameters>
+          <advantages>
+            <advantage>Simple natural language interface</advantage>
+            <advantage>Automatic dimension member selection</advantage>
+            <advantage>Returns formatted data and explanation</advantage>
+            <advantage>Provides encoded state for further analysis</advantage>
+          </advantages>
+          <output>
+            <field>cube_name: Selected cube</field>
+            <field>filters: Applied context (markdown table)</field>
+            <field>data: Result data (markdown table)</field>
+            <field>explanation: How query was interpreted</field>
+            <field>state: Encoded for further analysis</field>
+            <field>alternative_cubes: Other cubes that might answer query</field>
+          </output>
+          <query_examples>
+            <example>"Show Q4 2025 budget vs actual variance for total company"</example>
+            <example>"Compare phone sales across regions in 2025"</example>
+            <example>"What were the expenses in Q3?"</example>
+          </query_examples>
+        </approach>
+      </branch>
+      
+      <branch condition="cube_not_pre_analyzed">
+        <approach name="MDX Query">
+          <description>Use when cube is not pre-analyzed or when precise control is needed</description>
+          
+          <option priority="1" name="AI-Generated MDX">
+            <tool>get_MDX_for_recommended_view</tool>
+            <purpose>Let AI construct MDX from natural language</purpose>
+            <parameters>
+              <param name="server">TM1 server name</param>
+              <param name="query">Natural language query</param>
+              <param name="cube">Cube name (optional)</param>
+            </parameters>
+            <output>
+              <field>cube_name: Selected cube</field>
+              <field>mdx: Generated MDX query string</field>
+              <field>state: Encoded state</field>
+            </output>
+            <then>
+              <tool>execute_mdx_and_get_view</tool>
+              <purpose>Execute the generated MDX</purpose>
+            </then>
+            <note>Only works with pre-analyzed cubes</note>
+          </option>
+          
+          <option priority="2" name="Manual MDX Construction">
+            <tool>execute_mdx_and_get_view</tool>
+            <purpose>Execute MDX query directly</purpose>
+            <parameters>
+              <param name="server">TM1 server name</param>
+              <param name="cube">Cube name</param>
+              <param name="mdx">MDX query string</param>
+              <param name="max_rows">Default 8</param>
+              <param name="max_columns">Default 8</param>
+            </parameters>
+            <mdx_structure>
+              <select>Members on COLUMNS</select>
+              <rows>Members on ROWS</rows>
+              <from>Cube name</from>
+              <where>Context filters (optional)</where>
+            </mdx_structure>
+            <mdx_example><![CDATA[
+SELECT 
+{[product].[product].[Phones],[product].[product].[PCs],[product].[product].[Tablets]} ON COLUMNS,
+{[Version].[Version].[Budget],[Version].[Version].[Actual]} ON ROWS
+FROM [Revenue]
+WHERE ([organization].[organization].[Total Company],[Month].[Month].[Q4],[Year].[Year].[Y1])
+            ]]></mdx_example>
+            <mdx_tips>
+              <tip>Use member IDs from get_cube_sample_members, not aliases</tip>
+              <tip>Use [dimension].[hierarchy].[member] format</tip>
+              <tip>WHERE clause is optional for context filters</tip>
+              <tip>Can use multiple members in {} for sets</tip>
+            </mdx_tips>
+          </option>
+          
+          <advantages>
+            <advantage>Works with ANY cube regardless of pre-analysis</advantage>
+            <advantage>Full control over query structure</advantage>
+            <advantage>Can query specific members precisely</advantage>
+            <advantage>More efficient for complex queries</advantage>
+          </advantages>
+          
+          <output>
+            <field>data: Result data (markdown table)</field>
+            <field>state: Encoded for further analysis</field>
+          </output>
+        </approach>
+      </branch>
+    </decision_tree>
+    
+    <error_handling>
+      <error type="cube_not_pre_analyzed">
+        <message>Cube [name] was not pre-analyzed. Data Explorer tool can be used only for pre-analyzed cubes.</message>
+        <recovery>
+          <step>1. Acknowledge the limitation to user</step>
+          <step>2. Check pre-analysis status with list_cubes_with_ai_analysis_metadata</step>
+          <step>3. Switch to execute_mdx_and_get_view approach</step>
+          <step>4. Inform user of the switch and continue seamlessly</step>
+        </recovery>
+        <example_message>"The Revenue cube isn't pre-analyzed for the data explorer. I'll use an MDX query instead to get your data."</example_message>
+      </error>
+      
+      <error type="member_not_found">
+        <recovery>
+          <step>Use lookup_potential_members to search for similar members</step>
+          <step>Present alternatives to user</step>
+          <step>Ask user to choose or use best match</step>
+        </recovery>
+      </error>
+      
+      <error type="dimension_not_found">
+        <recovery>
+          <step>Use get_cube_dimensions to list available dimensions</step>
+          <step>Suggest correct dimension name</step>
+        </recovery>
+      </error>
+      
+      <error type="no_data_returned">
+        <recovery>
+          <step>Verify period exists (e.g., Q4 2025 vs Q4 2026)</step>
+          <step>Check dimension member names are correct</step>
+          <step>Verify filters aren't too restrictive</step>
+        </recovery>
+      </error>
+    </error_handling>
+  </workflow>
+
+  <!-- VARIANCE ANALYSIS WORKFLOW -->
+  <workflow id="variance_analysis" name="Variance Analysis" type="specialized">
+    <description>Compare Budget vs Actual, Forecast vs Actual, or Period-over-Period</description>
+    <when_to_use>User asks for variance, comparison, budget vs actual, forecast analysis</when_to_use>
+    
+    <prerequisites>
+      <prerequisite>Cube must have Version dimension with Budget/Actual or similar members</prerequisite>
+      <prerequisite>Time dimension must have requested period</prerequisite>
+    </prerequisites>
+    
+    <steps>
+      <step order="1" name="Parse Request">
+        <action>Identify target period (e.g., Q4 2025, YTD, monthly)</action>
+        <action>Determine which cube(s) to analyze (Revenue, Compensation, Income Statement)</action>
+        <action>Understand organizational scope (Total Company, region, department)</action>
+        <action>Identify comparison type (Budget vs Actual, Forecast vs Actual, Period-over-Period)</action>
+      </step>
+      
+      <step order="2" name="Discover & Validate">
+        <action>Use Discovery workflow to find server and cube</action>
+        <action>Use get_cube_sample_members to verify Version dimension has needed members</action>
+        <action>Use lookup_potential_members if member names aren't exact</action>
+      </step>
+      
+      <step order="3" name="Query Data">
+        <action>Use Query workflow to retrieve both versions (e.g., Budget and Actual)</action>
+        <query_construction>
+          <columns>Product, Region, or other analysis dimensions</columns>
+          <rows>Version members (Budget, Actual, Variance if available)</rows>
+          <context>Organization, Time Period, other filters</context>
+        </query_construction>
+      </step>
+      
+      <step order="4" name="Calculate Variances">
+        <calculation name="variance_amount">Actual - Budget</calculation>
+        <calculation name="variance_percentage">(Actual - Budget) / Budget * 100</calculation>
+        <calculation name="favorable_unfavorable">
+          <rule>For Revenue: Positive variance = Favorable</rule>
+          <rule>For Expenses: Negative variance = Favorable</rule>
+        </calculation>
+      </step>
+      
+      <step order="5" name="Identify Material Variances">
+        <threshold>Greater than 10% OR greater than $100,000</threshold>
+        <note>Thresholds can be adjusted based on user requirements</note>
+        <for_each_material_variance>
+          <capture>Specific item (product, department, cost center)</capture>
+          <capture>Variance amount and percentage</capture>
+          <capture>Severity (high, medium, low)</capture>
+          <capture>Context (period, organization, comparison basis)</capture>
+        </for_each_material_variance>
+      </step>
+      
+      <step order="6" name="Generate Insights">
+        <insight_type>Explain variance drivers in business terms</insight_type>
+        <insight_type>Identify trends or patterns across items</insight_type>
+        <insight_type>Recommend investigation areas</insight_type>
+        <insight_type>Suggest corrective actions if applicable</insight_type>
+        <note>Base insights on data patterns, not speculation</note>
+      </step>
+      
+      <step order="7" name="Calculate Confidence">
+        <factor>Data availability (all required data retrieved)</factor>
+        <factor>Data quality (no missing values or errors)</factor>
+        <factor>Variance clarity (clear patterns identified)</factor>
+        <factor>Recommendation strength (actionable insights provided)</factor>
+        <range>0.0 to 1.0</range>
+      </step>
+    </steps>
+    
+    <output_format>
+      <structure>
+        <title>📊 [Period] [Cube] Variance Analysis</title>
+        <metadata>
+          <field>Server</field>
+          <field>Cube</field>
+          <field>Period</field>
+          <field>Organization</field>
+        </metadata>
+        <financial_summary>
+          <format>Table with Budget, Actual, Variance ($), Variance (%)</format>
+          <include_totals>true</include_totals>
+        </financial_summary>
+        <material_variances>
+          <symbol>⚠️ for items exceeding threshold</symbol>
+          <symbol>✅ for favorable variances</symbol>
+          <symbol>⚠️ for unfavorable variances</symbol>
+          <sort_by>Severity (largest variances first)</sort_by>
+        </material_variances>
+        <key_findings>
+          <bullet_points>Concise summary of main insights</bullet_points>
+          <max_items>3-5 key findings</max_items>
+        </key_findings>
+        <recommended_actions>
+          <numbered_list>Specific, actionable recommendations</numbered_list>
+          <max_items>3-5 recommendations</max_items>
+        </recommended_actions>
+        <footer>
+          <confidence_score>0.0 to 1.0</confidence_score>
+          <analysis_time>Seconds taken (optional)</analysis_time>
+          <source_attribution>Server, cube, period, organization</source_attribution>
+        </footer>
+      </structure>
+      <formatting>
+        <emojis>Use sparingly for visual clarity (📊 ⚠️ ✅ 📈 📉)</emojis>
+        <numbers>Format properly ($22.97M, 44%, +15.2%)</numbers>
+        <organization>Material variances first, then by severity</organization>
+        <length>Aim for less than 500 words</length>
+      </formatting>
+    </output_format>
+    
+    <query_types>
+      <simple_query>
+        <example>"Show Q4 variance"</example>
+        <response>Quick summary with totals and top variances</response>
+      </simple_query>
+      <specific_query>
+        <example>"Analyze phone sales variance"</example>
+        <response>Detailed breakdown for specific product/category</response>
+      </specific_query>
+      <comprehensive_query>
+        <example>"Find all material variances"</example>
+        <response>Multi-cube analysis across all areas</response>
+      </comprehensive_query>
+      <comparison_query>
+        <example>"Compare Q4 vs Q3"</example>
+        <response>Period-over-period analysis</response>
+      </comparison_query>
+    </query_types>
+  </workflow>
+
+  <!-- IMPACT ANALYSIS WORKFLOW -->
+  <workflow id="impact_analysis" name="Impact Analysis (Key Drivers)" type="specialized">
+    <description>Identify key drivers and most influential data points</description>
+    <when_to_use>User asks "what's driving the results", "key drivers", "most important factors"</when_to_use>
+    
+    <prerequisites>
+      <prerequisite>Must have state from previous query (get_data_from_data_explorer or execute_mdx_and_get_view)</prerequisite>
+    </prerequisites>
+    
+    <steps>
+      <step order="1" name="Perform Analysis">
+        <tool>perform_impact_analysis</tool>
+        <parameters>
+          <param name="server">TM1 server name</param>
+          <param name="state">Encoded state from previous query</param>
+          <param name="row_start">Starting row (default 0)</param>
+          <param name="row_span">Number of rows (default 100)</param>
+          <param name="column_start">Starting column (default 0)</param>
+          <param name="column_span">Number of columns (default 100)</param>
+        </parameters>
+        <output>Key driver points with x,y coordinates and ranges</output>
+      </step>
+      
+      <step order="2" name="Generate Insights">
+        <tool>get_impact_analysis_summary</tool>
+        <parameters>
+          <param name="key_drivers">List of key driver data points from step 1</param>
+        </parameters>
+        <output>Natural language summary explaining key drivers and their impact</output>
+      </step>
+    </steps>
+    
+    <output_format>
+      <title>📈 Key Drivers Analysis</title>
+      <summary>AI-generated natural language summary</summary>
+      <key_drivers_list>Top drivers with impact scores</key_drivers_list>
+      <recommendations>Actions based on key drivers</recommendations>
+    </output_format>
+  </workflow>
+
+  <!-- OUTLIER DETECTION WORKFLOW -->
+  <workflow id="outlier_detection" name="Outlier Detection" type="specialized">
+    <description>Find anomalous data points using multiple algorithms</description>
+    <when_to_use>User asks "find outliers", "anomalies", "unusual values", "data quality issues"</when_to_use>
+    
+    <prerequisites>
+      <prerequisite>Must have state from previous query</prerequisite>
+    </prerequisites>
+    
+    <steps>
+      <step order="1" name="Perform Detection">
+        <tool>perform_outlier_detection</tool>
+        <parameters>
+          <param name="server">TM1 server name</param>
+          <param name="state">Encoded state from previous query</param>
+          <param name="row_start">Starting row (default 0)</param>
+          <param name="row_span">Number of rows (default 100)</param>
+          <param name="column_start">Starting column (default 0)</param>
+          <param name="column_span">Number of columns (default 100)</param>
+        </parameters>
+        <output>Multiple algorithm results with outliers, scores, summaries</output>
+      </step>
+      
+      <step order="2" name="Generate Insights">
+        <tool>get_outlier_summary</tool>
+        <parameters>
+          <param name="outliers">List of detected outliers from specific algorithm</param>
+          <param name="algorithm">Name of algorithm used</param>
+        </parameters>
+        <output>Natural language explanation for specific algorithm's findings</output>
+        <note>Call once per algorithm if multiple algorithms detected outliers</note>
+      </step>
+    </steps>
+    
+    <output_format>
+      <title>🔍 Outlier Detection Results</title>
+      <algorithm_results>Results from each algorithm with outlier counts</algorithm_results>
+      <outlier_details>Specific outliers with locations and values</outlier_details>
+      <insights>AI-generated explanations and potential causes</insights>
+      <recommendations>Investigation steps or data quality actions</recommendations>
+    </output_format>
+  </workflow>
+
+  <!-- VIEW MANAGEMENT WORKFLOW -->
+  <workflow id="view_management" name="View Management" type="utility">
+    <description>Create, save, and retrieve cube views</description>
+    <when_to_use>User wants to save a view for later, load a saved view, or see available views</when_to_use>
+    
+    <operations>
+      <operation name="list_views">
+        <tool>list_cube_views</tool>
+        <purpose>See all views for a cube</purpose>
+        <parameters>
+          <param name="server">TM1 server name</param>
+          <param name="cube">Cube name</param>
+        </parameters>
+      </operation>
+      
+      <operation name="save_view">
+        <tool>save_mdx_view</tool>
+        <purpose>Persist a view for later use</purpose>
+        <parameters>
+          <param name="server">TM1 server name</param>
+          <param name="name">View name</param>
+          <param name="cube">Cube name (if using MDX)</param>
+          <param name="mdx">MDX query (if using MDX)</param>
+          <param name="state">Encoded state (if using state from data explorer)</param>
+          <param name="private">true/false (default false)</param>
+          <param name="overwrite_existing">true/false (default false)</param>
+        </parameters>
+        <note>Provide either MDX or state, not both</note>
+      </operation>
+      
+      <operation name="retrieve_view">
+        <tool>get_saved_view</tool>
+        <purpose>Load previously saved view</purpose>
+        <parameters>
+          <param name="server">TM1 server name</param>
+          <param name="cube">Cube name</param>
+          <param name="view">View name</param>
+          <param name="private">true/false (default false)</param>
+          <param name="row_start">Default 0</param>
+          <param name="row_span">Default 120</param>
+          <param name="column_start">Default 0</param>
+          <param name="column_span">Default 30</param>
+        </parameters>
+        <output>
+          <field>data: View data (markdown table)</field>
+          <field>state: For further operations</field>
+        </output>
+      </operation>
+    </operations>
+  </workflow>
+
+  <!-- CUBE MANAGEMENT WORKFLOW -->
+  <workflow id="cube_management" name="Cube Management" type="utility">
+    <description>Create and delete cubes</description>
+    <when_to_use>User needs to create or delete cubes programmatically</when_to_use>
+    
+    <operations>
+      <operation name="create_cube">
+        <tool>create_tm1_cube</tool>
+        <parameters>
+          <param name="server">TM1 server name</param>
+          <param name="cube_name">Name for new cube</param>
+          <param name="dimensions">List of dimension names</param>
+        </parameters>
+        <note>Dimensions must already exist on the server</note>
+        <warning>Verify dimensions exist before attempting creation</warning>
+      </operation>
+      
+      <operation name="delete_cube">
+        <tool>delete_tm1_cube</tool>
+        <parameters>
+          <param name="server">TM1 server name</param>
+          <param name="cube_name">Name of cube to delete</param>
+        </parameters>
+        <warning>Permanent operation - ALWAYS confirm with user first</warning>
+        <confirmation_message>"Are you sure you want to delete cube '[cube_name]'? This action cannot be undone."</confirmation_message>
+      </operation>
+    </operations>
+  </workflow>
+
+  <!-- REPORT GENERATION WORKFLOW -->
+  <workflow id="report_generation" name="Report Generation" type="specialized">
+    <description>Generate comprehensive PDF reports with visualizations</description>
+    <when_to_use>User needs formal report, presentation material, or comprehensive documentation</when_to_use>
+    
+    <prerequisites>
+      <prerequisite>Must have state from previous query</prerequisite>
+    </prerequisites>
+    
+    <steps>
+      <step order="1" name="Generate Report">
+        <tool>generate_exploration_analysis_report</tool>
+        <parameters>
+          <param name="server">TM1 server name</param>
+          <param name="state">Encoded state from previous query</param>
+          <param name="row_range_start">Default 0</param>
+          <param name="row_range_span">Default 120</param>
+          <param name="column_range_start">Default 0</param>
+          <param name="column_range_span">Default 120</param>
+          <param name="generate_summary">Default true</param>
+        </parameters>
+        <output>Base64-encoded PDF file</output>
+      </step>
+      
+      <step order="2" name="Present Report">
+        <action>Inform user that report has been generated</action>
+        <action>Explain what's included in the report</action>
+        <action>Provide the base64-encoded PDF</action>
+      </step>
+    </steps>
+  </workflow>
+
+  <!-- PROGRESSIVE DISCLOSURE PATTERN -->
+  <common_pattern name="progressive_disclosure">
+    <description>Start with summary, offer drill-down options</description>
+    <when>Large dataset or complex analysis</when>
+    <approach>
+      <step>Start with summary or top-level view</step>
+      <step>Highlight key findings or material items</step>
+      <step>Offer to drill down into details</step>
+      <step>Provide options for different perspectives</step>
+    </approach>
+    <example>
+      <initial>"Here's the Q4 variance summary showing total variance of +$350K. The main driver is Tablets (+$1.19M). Would you like to see: 1) Detailed breakdown by product, 2) Regional analysis, or 3) Month-by-month trend?"</initial>
+    </example>
+  </common_pattern>
+
+  <!-- TM1 DIMENSION & CUBE CREATION WORKFLOW -->
+  <workflow id="dimension_cube_creation" name="TM1 Dimension & Cube Creation" type="implementation">
+    <description>Create TM1 dimensions with elements/attributes and cubes using TurboIntegrator processes</description>
+    <when_to_use>User needs to create dimensions, cubes, or load data from CSV files; building new TM1 models</when_to_use>
+    
+    <key_learnings>
+      <learning priority="critical">
+        <principle>Atomic Single-Process Approach</principle>
+        <description>Create dimensions, elements, attributes, cube, and load data in ONE comprehensive TI process</description>
+        <rationale>Ensures all dependencies are met before data loading; eliminates "Invalid key" errors from missing elements</rationale>
+        <anti_pattern>Creating dimensions in one process, then loading data in another (causes missing element errors)</anti_pattern>
+      </learning>
+      
+      <learning priority="critical">
+        <principle>Always Create Dimension Elements Explicitly</principle>
+        <description>Never assume dimension elements exist - always use DimensionElementInsert for every element</description>
+        <rationale>Dimension creation without element insertion creates empty dimensions, causing data load failures</rationale>
+        <code_pattern>
+          DimensionDeleteAllElements(vDimName);  # Clean slate
+          DimensionElementInsert(vDimName, '', 'Element1', 'S');
+          DimensionElementInsert(vDimName, '', 'Element2', 'S');
+        </code_pattern>
+      </learning>
+      
+      <learning priority="high">
+        <principle>Use Measures Dimension for Multi-Metric Cubes</principle>
+        <description>Create dedicated dimension for measures (e.g., Measures, Metrics) instead of separate cubes</description>
+        <rationale>Makes cube structure cleaner, more flexible, and easier to query</rationale>
+        <example>Sales_Measures: revenue, units_sold, discount, margin | HR_Measures: headcount, salary, bonus</example>
+      </learning>
+      
+      <learning priority="high">
+        <principle>Validate Before Loading Data</principle>
+        <description>Always verify dimension elements exist before attempting to write data to cube</description>
+        <code_pattern>
+          IF(DimIx(vDimName, vElement) = 0);
+            DimensionElementInsert(vDimName, '', vElement, 'S');
+          ENDIF;
+        </code_pattern>
+      </learning>
+    </key_learnings>
+    
+    <process_structure>
+      <section name="PROLOG">
+        <purpose>Dimension creation, element insertion, attribute creation, cube creation</purpose>
+        <steps>
+          <step>1. Create dimensions (DimensionCreate)</step>
+          <step>2. Clean slate with DimensionDeleteAllElements</step>
+          <step>3. Insert all dimension elements (DimensionElementInsert)</step>
+          <step>4. Create attributes (AttrInsert)</step>
+          <step>5. Set attribute values (AttrPutS, AttrPutN)</step>
+          <step>6. Create cube (CubeCreate)</step>
+        </steps>
+        <code_example><![CDATA[
+# Create dimension
+vDimName = 'Product';
+IF(DimensionExists(vDimName) = 0);
+    DimensionCreate(vDimName);
+ENDIF;
+DimensionDeleteAllElements(vDimName);
+
+# Insert dimension elements
+DimensionElementInsert(vDimName, '', 'Phones', 'S');
+DimensionElementInsert(vDimName, '', 'Laptops', 'S');
+DimensionElementInsert(vDimName, '', 'Tablets', 'S');
+
+# Create attributes
+AttrInsert(vDimName, '', 'category', 'A');
+AttrInsert(vDimName, '', 'price', 'N');
+
+# Set attribute values
+AttrPutS('Electronics', vDimName, 'Phones', 'category');
+AttrPutN(599, vDimName, 'Phones', 'price');
+
+# Create cube
+vCubeName = 'Sales';
+IF(CubeExists(vCubeName) = 0);
+    CubeCreate(vCubeName, 'Product', 'Region', 'Time', 'Measures');
+ENDIF;
+        ]]></code_example>
+      </section>
+      
+      <section name="METADATA">
+        <purpose>Usually empty for data loading processes</purpose>
+      </section>
+      
+      <section name="DATA">
+        <purpose>CSV data processing (row-by-row)</purpose>
+        <note>Can be empty if loading data in EPILOG instead</note>
+      </section>
+      
+      <section name="EPILOG">
+        <purpose>Data loading, cleanup, final validations</purpose>
+        <steps>
+          <step>1. Load fact data using CellPutN/CellPutS</step>
+          <step>2. Validate data was loaded correctly</step>
+          <step>3. Log status messages</step>
+        </steps>
+        <code_example><![CDATA[
+# Load fact data
+CellPutN(15000, vCubeName, 'Phones', 'North', 'Jan', 'revenue');
+CellPutN(250, vCubeName, 'Phones', 'North', 'Jan', 'units_sold');
+CellPutN(12500, vCubeName, 'Laptops', 'South', 'Jan', 'revenue');
+CellPutN(125, vCubeName, 'Laptops', 'South', 'Jan', 'units_sold');
+        ]]></code_example>
+      </section>
+    </process_structure>
+    
+    <critical_functions>
+      <function_group category="dimension_operations">
+        <function name="DimensionExists">
+          <syntax>DimensionExists(DimensionName)</syntax>
+          <returns>1 if exists, 0 if not</returns>
+          <use>Check before creating dimension</use>
+        </function>
+        
+        <function name="DimensionCreate">
+          <syntax>DimensionCreate(DimensionName)</syntax>
+          <use>Create new dimension</use>
+        </function>
+        
+        <function name="DimensionDeleteAllElements">
+          <syntax>DimensionDeleteAllElements(DimensionName)</syntax>
+          <use>Remove all elements (clean slate approach)</use>
+          <important>Faster than deleting dimension and recreating</important>
+        </function>
+        
+        <function name="DimensionElementInsert">
+          <syntax>DimensionElementInsert(Dimension, Parent, Element, ElementType)</syntax>
+          <element_types>
+            <type code="S">String (leaf element)</type>
+            <type code="N">Numeric (leaf element)</type>
+            <type code="C">Consolidated (parent element)</type>
+          </element_types>
+          <use>Insert element into dimension</use>
+          <critical>ALWAYS use this - never assume elements exist</critical>
+        </function>
+        
+        <function name="DimIx">
+          <syntax>DimIx(DimensionName, ElementName)</syntax>
+          <returns>Element index (1-based) or 0 if not found</returns>
+          <use>Check if element exists before using it</use>
+        </function>
+      </function_group>
+      
+      <function_group category="attribute_operations">
+        <function name="AttrInsert">
+          <syntax>AttrInsert(Dimension, Hierarchy, AttributeName, AttributeType)</syntax>
+          <attribute_types>
+            <type code="A">Alias (string)</type>
+            <type code="N">Numeric</type>
+            <type code="S">String</type>
+          </attribute_types>
+          <use>Create attribute for dimension</use>
+        </function>
+        
+        <function name="AttrPutS">
+          <syntax>AttrPutS(StringValue, Dimension, Element, Attribute)</syntax>
+          <use>Set string attribute value</use>
+        </function>
+        
+        <function name="AttrPutN">
+          <syntax>AttrPutN(NumericValue, Dimension, Element, Attribute)</syntax>
+          <use>Set numeric attribute value</use>
+        </function>
+      </function_group>
+      
+      <function_group category="cube_operations">
+        <function name="CubeExists">
+          <syntax>CubeExists(CubeName)</syntax>
+          <returns>1 if exists, 0 if not</returns>
+          <use>Check before creating cube</use>
+        </function>
+        
+        <function name="CubeCreate">
+          <syntax>CubeCreate(CubeName, Dim1, Dim2, Dim3, ...)</syntax>
+          <use>Create new cube with specified dimensions</use>
+          <important>Dimensions must already exist</important>
+        </function>
+        
+        <function name="CellPutN">
+          <syntax>CellPutN(NumericValue, Cube, Elem1, Elem2, Elem3, ...)</syntax>
+          <use>Write numeric value to cube cell</use>
+        </function>
+        
+        <function name="CellPutS">
+          <syntax>CellPutS(StringValue, Cube, Elem1, Elem2, Elem3, ...)</syntax>
+          <use>Write string value to cube cell</use>
+        </function>
+      </function_group>
+    </critical_functions>
+    
+    <common_errors>
+      <error type="invalid_key">
+        <message>"Invalid key" when loading data</message>
+        <cause>Dimension element doesn't exist</cause>
+        <solution>Always create elements before loading data; use DimIx to verify</solution>
+        <prevention>Use atomic single-process approach with explicit element insertion</prevention>
+      </error>
+      
+      <error type="empty_dimension">
+        <message>Dimension exists but has no elements</message>
+        <cause>Created dimension without inserting elements</cause>
+        <solution>Use DimensionElementInsert for every element</solution>
+        <prevention>Never assume elements exist - always insert explicitly</prevention>
+      </error>
+      
+      <error type="attribute_type_mismatch">
+        <message>Type mismatch when setting attribute value</message>
+        <cause>Using AttrPutN for string attribute or AttrPutS for numeric</cause>
+        <solution>Match attribute type: 'A'/'S' → AttrPutS, 'N' → AttrPutN</solution>
+      </error>
+      
+      <error type="dimension_not_exist">
+        <message>Dimension doesn't exist when creating cube</message>
+        <cause>Trying to create cube before dimensions are created</cause>
+        <solution>Create all dimensions before CubeCreate call</solution>
+        <prevention>Follow PROLOG structure: dimensions → elements → attributes → cube</prevention>
+      </error>
+    </common_errors>
+    
+    <mcp_tools_workflow>
+      <step order="1" name="Create Process">
+        <tool>create_tm1_process</tool>
+        <parameters>
+          <param name="server">TM1 server name</param>
+          <param name="process_name">Descriptive name (e.g., Build_Complete_Sales_System, Load_HR_Data)</param>
+        </parameters>
+      </step>
+      
+      <step order="2" name="Update Process with Code">
+        <tool>update_tm1_process</tool>
+        <parameters>
+          <param name="server">TM1 server name</param>
+          <param name="process_name">Process name from step 1</param>
+          <param name="prolog_procedure">Dimension/cube creation code</param>
+          <param name="epilog_procedure">Data loading code</param>
+          <param name="parameters">Empty list [] if no parameters needed</param>
+        </parameters>
+        <validation>Tool returns syntax_errors array - must be empty for success</validation>
+      </step>
+      
+      <step order="3" name="Execute Process">
+        <tool>execute_tm1_processes_asynchronously</tool>
+        <parameters>
+          <param name="server">TM1 server name</param>
+          <param name="process_name">Process name</param>
+          <param name="parameters">Empty list [] if no parameters</param>
+        </parameters>
+      </step>
+      
+      <step order="4" name="Check Status">
+        <tool>get_tm1_server_process_status</tool>
+        <parameters>
+          <param name="server">TM1 server name</param>
+          <param name="process_name">Process name</param>
+        </parameters>
+        <check>Wait until process completes (state not "running")</check>
+      </step>
+      
+      <step order="5" name="Check for Errors">
+        <tool>get_tm1_server_process_execution_error_logs</tool>
+        <parameters>
+          <param name="server">TM1 server name</param>
+          <param name="process_name">Process name</param>
+        </parameters>
+        <success>Empty or no error logs found</success>
+        <failure>Parse error logs and take corrective action</failure>
+      </step>
+      
+      <step order="6" name="Verify Data">
+        <tool>execute_mdx_and_get_view</tool>
+        <purpose>Query cube to verify data was loaded correctly</purpose>
+        <example_mdx><![CDATA[
+SELECT
+  {[Measures].[revenue], [Measures].[units_sold]} ON COLUMNS,
+  {[Product].[Product].MEMBERS} ON ROWS
+FROM [Sales]
+WHERE ([Region].[North], [Time].[Jan])
+        ]]></example_mdx>
+      </step>
+    </mcp_tools_workflow>
+    
+    <best_practices>
+      <practice priority="critical">
+        <name>Atomic Process Design</name>
+        <description>Combine dimension creation, element insertion, and data loading in single process</description>
+        <benefit>Ensures referential integrity; easier to rollback on failure</benefit>
+      </practice>
+      
+      <practice priority="critical">
+        <name>Clean Slate Approach</name>
+        <description>Use DimensionDeleteAllElements instead of deleting/recreating dimension</description>
+        <benefit>Faster; preserves dimension metadata; ensures fresh start</benefit>
+      </practice>
+      
+      <practice priority="high">
+        <name>Explicit Element Creation</name>
+        <description>Always use DimensionElementInsert for every element</description>
+        <benefit>Prevents "Invalid key" errors; makes code self-documenting</benefit>
+      </practice>
+      
+      <practice priority="high">
+        <name>Validation Before Data Load</name>
+        <description>Use DimIx to verify elements exist before CellPutN/CellPutS</description>
+        <benefit>Catches missing elements early; provides clear error messages</benefit>
+      </practice>
+      
+      <practice priority="medium">
+        <name>Use Measures Dimension</name>
+        <description>Create dedicated dimension for metrics instead of separate cubes</description>
+        <benefit>Cleaner structure; more flexible; easier to query</benefit>
+      </practice>
+      
+      <practice priority="medium">
+        <name>Verify with MDX</name>
+        <description>After loading data, query cube with MDX to verify correctness</description>
+        <benefit>Confirms data loaded successfully; validates cube structure</benefit>
+      </practice>
+    </best_practices>
+    
+    <complete_example>
+      <scenario>Generic example - Create any TM1 system with dimensions and load data from CSV</scenario>
+      <process_name>Build_Complete_System</process_name>
+      <approach>Follow atomic single-process pattern for any dataset</approach>
+      <steps>
+        <step>1. Create all dimensions with DimensionCreate</step>
+        <step>2. Insert all elements with DimensionElementInsert</step>
+        <step>3. Create and populate attributes with AttrInsert/AttrPutS/AttrPutN</step>
+        <step>4. Create cube with CubeCreate</step>
+        <step>5. Load data with CellPutN/CellPutS</step>
+        <step>6. Verify with MDX queries</step>
+      </steps>
+      <result>Works for any dataset: sales, HR, finance, operations, etc.</result>
+      <reference>See TM1_Dimension_Cube_Creation_Learnings.md for Flight Operations example</reference>
+    </complete_example>
+    
+    <troubleshooting>
+      <issue>Process executes but data not loaded</issue>
+      <check>Verify dimension elements exist using get_cube_sample_members</check>
+      <check>Check error logs with get_tm1_server_process_execution_error_logs</check>
+      <check>Query cube with MDX to see if any data was loaded</check>
+      
+      <issue>Syntax errors in TI code</issue>
+      <check>Review update_tm1_process response for syntax_errors array</check>
+      <check>Verify TM1 function names and parameters are correct</check>
+      <check>Check for missing semicolons or mismatched quotes</check>
+      
+      <issue>Cube created but empty</issue>
+      <check>Verify EPILOG section has CellPutN/CellPutS calls</check>
+      <check>Confirm element names in CellPut calls match dimension elements</check>
+      <check>Check if data loading code is in correct section (EPILOG not DATA)</check>
+    </troubleshooting>
+  </workflow>
+
+</planning_analytics_workflows>
+
+<!-- Made with Bob -->

@@ -9,7 +9,8 @@
 | Design document | <title, version, date> |
 | Validated by | |
 | Date | |
-| Access route | PA MCP tools / TM1py REST / mixed |
+| Access route | PA MCP tools (default) / tm1_validate.py CI script / mixed |
+| Server name (MCP) | <exact name from get_available_tm1_servers> |
 
 ## Summary
 

@@ -4,18 +4,21 @@ The harness compares the server against this file, so the spec **is** the design
 document expressed as data. Fill it from the design doc before the build, not
 after — a spec derived from the finished model validates nothing.
 
+## When running through Bob (MCP tools — no credentials needed)
+
+When Bob runs the validation interactively, all live server checks are performed
+through the Planning Analytics MCP server tools. **No `connection` block is needed.**
+The spec carries only design expectations; Bob resolves the server from the active
+MCP session.
+
 ```jsonc
 {
   "model_name": "Freight Cost Planning",
-  "database": "PLANNING_DEV",
+  "database": "PLANNING_DEV",      // used as a label in the report
   "pa_version": "v12",
   "design_document": "PA Freight Model Design v1.3, 2026-08-28",
 
-  "connection": {                    // password from $TM1_PASSWORD, never here
-    "base_url": "https://<tenant>.planninganalytics.cloud.ibm.com/api/<db>/v0",
-    "user": "apikey",
-    "ssl": true
-  },
+  // connection block is NOT required when using MCP tools through Bob
 
   "naming_convention": { "dimension_regex": "^(Dim|dm)[A-Z]" },
 
@@ -63,6 +66,36 @@ after — a spec derived from the finished model validates nothing.
 }
 ```
 
+## When running via CI pipeline (tm1_validate.py — credentials required)
+
+The script `scripts/tm1_validate.py` uses TM1py over the REST API and has no MCP
+session. In this path only, add a `connection` block and supply the password via
+the `$TM1_PASSWORD` environment variable. **Never put the password in the file.**
+
+```jsonc
+{
+  "model_name": "Freight Cost Planning",
+  "database": "PLANNING_DEV",
+  "pa_version": "v12",
+  "design_document": "PA Freight Model Design v1.3, 2026-08-28",
+
+  "connection": {                    // CI pipeline only — not needed with MCP tools
+    "base_url": "https://<tenant>.planninganalytics.cloud.ibm.com/api/<db>/v0",
+    "user": "apikey",                // password from $TM1_PASSWORD, never here
+    "ssl": true
+  },
+
+  // ... rest of spec identical to MCP usage above ...
+}
+```
+
+```bash
+export TM1_PASSWORD="your-api-key-here"
+python tm1_validate.py --mode conformance --spec spec.json --out report/
+```
+
+Exit code is `1` when any BLOCKER is found, so it integrates unchanged into CI.
+
 ## Choosing sample cells
 
 Three or four well-chosen intersections catch more than fifty arbitrary ones.
@@ -81,9 +114,8 @@ pasted back into the spec turns the check into a tautology.
 
 ## Notes
 
-- The harness is **read-only**. Gates 3, 7 and 8 write cells or need PAW, so they
+- The automated harness is **read-only**. Gates 3, 7 and 8 write cells or need PAW, so they
   are executed manually against `references/checklist.md`.
-- Exit code is `1` when any BLOCKER is found, so it drops into CI unchanged.
 - `attribute_min_population` below `1.0` is a deliberate allowance — record why in
   the design doc, or a partially populated alias will pass quietly.
 
@@ -91,8 +123,14 @@ pasted back into the spec turns the check into a tautology.
 
 ## Intrinsic mode — no design document
 
-When there is no design document, skip the expectations entirely. The spec then carries
-only connection details, and everything else is discovered from the server:
+When there is no design document, the spec carries no design expectations.
+With MCP tools, only the server name is needed (resolved automatically from the
+active session). With the CI script, supply connection details only:
+
+**MCP tools (Bob session):** no spec file needed at all — Bob discovers the model
+directly using `get_tm1_cubes`, `get_cube_dimensions`, and `get_tm1_processes`.
+
+**CI script:**
 
 ```jsonc
 {

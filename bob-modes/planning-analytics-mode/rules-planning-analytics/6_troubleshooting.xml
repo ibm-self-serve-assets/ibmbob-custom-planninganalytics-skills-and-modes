@@ -1,0 +1,465 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<planning_analytics_troubleshooting>
+  
+  <!-- ========================================
+       COMMON ISSUES & RECOVERY STRATEGIES
+       Following agent_mode_samples pattern
+       ======================================== -->
+
+  <issue id="cube_not_pre_analyzed" severity="high" frequency="common">
+    <title>Cube Not Pre-Analyzed Error</title>
+    <error_message>Cube [name] was not pre-analyzed. Data Explorer tool can be used only for pre-analyzed cubes.</error_message>
+    
+    <symptoms>
+      <symptom>get_data_from_data_explorer returns error</symptom>
+      <symptom>Natural language query fails</symptom>
+      <symptom>User expects data but gets error instead</symptom>
+    </symptoms>
+    
+    <root_cause>
+      <explanation>The cube hasn't been analyzed by the AI engine, so it doesn't support natural language queries through the data explorer tool</explanation>
+      <technical_detail>Only cubes with is_analyzed: true in list_cubes_with_ai_analysis_metadata support get_data_from_data_explorer</technical_detail>
+    </root_cause>
+    
+    <recovery_strategy>
+      <step order="1">
+        <action>Acknowledge the limitation to user in friendly terms</action>
+        <example>"The Revenue cube isn't pre-analyzed for the data explorer. I'll use an MDX query instead to get your data."</example>
+      </step>
+      
+      <step order="2">
+        <action>Check pre-analysis status with list_cubes_with_ai_analysis_metadata</action>
+        <purpose>Confirm which cubes are pre-analyzed for future reference</purpose>
+      </step>
+      
+      <step order="3">
+        <action>Switch to execute_mdx_and_get_view approach</action>
+        <details>
+          <option priority="1">Use get_MDX_for_recommended_view to generate MDX (if cube is pre-analyzed)</option>
+          <option priority="2">Construct MDX manually using get_cube_sample_members for member IDs</option>
+        </details>
+      </step>
+      
+      <step order="4">
+        <action>Execute MDX query and continue seamlessly</action>
+        <note>User should not notice significant difference in results</note>
+      </step>
+    </recovery_strategy>
+    
+    <prevention>
+      <measure>ALWAYS check cube pre-analysis status before using get_data_from_data_explorer</measure>
+      <measure>Use list_cubes_with_ai_analysis_metadata at start of data analysis tasks</measure>
+      <measure>Default to MDX approach for non-pre-analyzed cubes</measure>
+    </prevention>
+    
+    <related_issues>
+      <issue_ref>mdx_construction_errors</issue_ref>
+      <issue_ref>member_not_found</issue_ref>
+    </related_issues>
+  </issue>
+
+  <issue id="member_not_found" severity="medium" frequency="common">
+    <title>Dimension Member Not Found</title>
+    <error_message>Member '[member_name]' not found in dimension '[dimension_name]'</error_message>
+    
+    <symptoms>
+      <symptom>MDX query fails with member not found error</symptom>
+      <symptom>Query returns no data unexpectedly</symptom>
+      <symptom>User-specified member name doesn't match actual member ID</symptom>
+    </symptoms>
+    
+    <root_cause>
+      <explanation>Member name provided doesn't exactly match the member ID in the dimension</explanation>
+      <common_causes>
+        <cause>User provided alias instead of ID</cause>
+        <cause>Typo or case sensitivity issue</cause>
+        <cause>Member doesn't exist in that dimension</cause>
+        <cause>Member is in different hierarchy</cause>
+      </common_causes>
+    </root_cause>
+    
+    <recovery_strategy>
+      <step order="1">
+        <action>Use lookup_potential_members to search for similar members</action>
+        <parameters>
+          <param name="search_term">User's provided member name</param>
+          <param name="dimension">Specific dimension (if known)</param>
+        </parameters>
+      </step>
+      
+      <step order="2">
+        <action>Present matches to user sorted by relevance</action>
+        <format>Show both ID and alias for clarity</format>
+      </step>
+      
+      <step order="3">
+        <action>Use best match or ask user to choose</action>
+        <decision>
+          <if condition="single_clear_match">Use it automatically</if>
+          <if condition="multiple_matches">Present options to user</if>
+          <if condition="no_matches">Suggest using get_cube_sample_members to browse</if>
+        </decision>
+      </step>
+      
+      <step order="4">
+        <action>Retry query with correct member ID</action>
+      </step>
+    </recovery_strategy>
+    
+    <prevention>
+      <measure>Always use get_cube_sample_members to get exact member IDs before querying</measure>
+      <measure>Use member IDs (not aliases) in MDX queries</measure>
+      <measure>Validate member existence before constructing queries</measure>
+    </prevention>
+  </issue>
+
+  <issue id="dimension_not_found" severity="medium" frequency="occasional">
+    <title>Dimension Not Found in Cube</title>
+    <error_message>Dimension '[dimension_name]' not found in cube '[cube_name]'</error_message>
+    
+    <symptoms>
+      <symptom>Query fails with dimension not found error</symptom>
+      <symptom>User-specified dimension doesn't exist in cube</symptom>
+    </symptoms>
+    
+    <root_cause>
+      <explanation>Dimension name provided doesn't exist in the specified cube</explanation>
+      <common_causes>
+        <cause>Typo in dimension name</cause>
+        <cause>Wrong cube selected</cause>
+        <cause>Dimension name varies across cubes</cause>
+      </common_causes>
+    </root_cause>
+    
+    <recovery_strategy>
+      <step order="1">
+        <action>Use get_cube_dimensions to list available dimensions</action>
+      </step>
+      
+      <step order="2">
+        <action>Find closest match to user's intended dimension</action>
+        <techniques>
+          <technique>String similarity matching</technique>
+          <technique>Semantic understanding (e.g., "time" → "Month" or "Year")</technique>
+        </techniques>
+      </step>
+      
+      <step order="3">
+        <action>Suggest correct dimension name to user</action>
+        <example>"The cube doesn't have a 'Time' dimension, but it has 'Month' and 'Year' dimensions. Did you mean one of those?"</example>
+      </step>
+      
+      <step order="4">
+        <action>Retry query with correct dimension</action>
+      </step>
+    </recovery_strategy>
+    
+    <prevention>
+      <measure>Use get_cube_dimensions before constructing queries</measure>
+      <measure>Validate dimension names against cube structure</measure>
+    </prevention>
+  </issue>
+
+  <issue id="no_data_returned" severity="medium" frequency="occasional">
+    <title>Query Returns No Data</title>
+    <error_message>Query executed successfully but returned no data</error_message>
+    
+    <symptoms>
+      <symptom>Query completes without error but data is empty</symptom>
+      <symptom>User expects data but gets empty result</symptom>
+    </symptoms>
+    
+    <root_cause>
+      <explanation>Query filters are too restrictive or data doesn't exist for specified criteria</explanation>
+      <common_causes>
+        <cause>Time period doesn't exist (e.g., Q4 2026 when only 2025 data exists)</cause>
+        <cause>Member combination has no data</cause>
+        <cause>Filters exclude all data</cause>
+        <cause>Cube is empty or sparsely populated</cause>
+      </common_causes>
+    </root_cause>
+    
+    <recovery_strategy>
+      <step order="1">
+        <action>Verify time period exists in data</action>
+        <check>Use get_cube_sample_members to see available periods</check>
+      </step>
+      
+      <step order="2">
+        <action>Check if member combinations are valid</action>
+        <example>Verify "Q4 2025" exists, not just "Q4" and "2025" separately</example>
+      </step>
+      
+      <step order="3">
+        <action>Broaden query scope</action>
+        <techniques>
+          <technique>Remove some filters</technique>
+          <technique>Use higher-level consolidations</technique>
+          <technique>Expand time range</technique>
+        </techniques>
+      </step>
+      
+      <step order="4">
+        <action>Inform user of the issue and adjusted query</action>
+        <example>"No data found for Q4 2026. I've adjusted to Q4 2025 which has data available."</example>
+      </step>
+    </recovery_strategy>
+    
+    <prevention>
+      <measure>Validate member existence before querying</measure>
+      <measure>Start with broader queries, then narrow down</measure>
+      <measure>Check data availability for requested period</measure>
+    </prevention>
+  </issue>
+
+  <issue id="mcp_server_unavailable" severity="high" frequency="rare">
+    <title>MCP Server Not Available</title>
+    <error_message>Tool '[tool_name]' does not exist on server '[server_name]' or No tools available</error_message>
+    
+    <symptoms>
+      <symptom>MCP tool calls fail</symptom>
+      <symptom>Server shows no available tools</symptom>
+      <symptom>Connection timeout or error</symptom>
+    </symptoms>
+    
+    <root_cause>
+      <explanation>MCP server is not responding or not properly configured</explanation>
+      <common_causes>
+        <cause>Server is down or restarting</cause>
+        <cause>Network connectivity issue</cause>
+        <cause>Authentication failure</cause>
+        <cause>Server configuration changed</cause>
+      </common_causes>
+    </root_cause>
+    
+    <recovery_strategy>
+      <step order="1">
+        <action>Check if alternative MCP server is available</action>
+        <servers>
+          <server>ibm-pa-tools-tz-cube (TechZone cube operations)</server>
+          <server>ibm-pa-tools-tz-server (TechZone process management)</server>
+          <server>ibm-pa-tools (Production SaaS)</server>
+        </servers>
+      </step>
+      
+      <step order="2">
+        <action>Inform user of the issue</action>
+        <example>"The MCP server is currently unavailable. I can provide guidance on how to query the data manually, or we can wait for the server to become available."</example>
+      </step>
+      
+      <step order="3">
+        <action>Offer alternative approaches</action>
+        <alternatives>
+          <alternative>Provide MDX query user can run in Planning Analytics Workspace</alternative>
+          <alternative>Explain how to access data through Workspace UI</alternative>
+          <alternative>Wait and retry after brief delay</alternative>
+        </alternatives>
+      </step>
+    </recovery_strategy>
+    
+    <prevention>
+      <measure>Check server availability at start of session</measure>
+      <measure>Have fallback approaches that don't require MCP</measure>
+      <measure>Monitor server status if possible</measure>
+    </prevention>
+  </issue>
+
+  <issue id="mdx_syntax_error" severity="medium" frequency="occasional">
+    <title>MDX Syntax Error</title>
+    <error_message>MDX syntax error: [specific error message]</error_message>
+    
+    <symptoms>
+      <symptom>execute_mdx_and_get_view fails with syntax error</symptom>
+      <symptom>Query doesn't execute</symptom>
+    </symptoms>
+    
+    <root_cause>
+      <explanation>MDX query has syntax errors</explanation>
+      <common_causes>
+        <cause>Incorrect member path format</cause>
+        <cause>Missing brackets or braces</cause>
+        <cause>Invalid dimension/hierarchy reference</cause>
+        <cause>Typo in member name</cause>
+      </common_causes>
+    </root_cause>
+    
+    <recovery_strategy>
+      <step order="1">
+        <action>Review MDX syntax</action>
+        <check_points>
+          <point>Member format: [dimension].[hierarchy].[member]</point>
+          <point>Sets use curly braces: {member1, member2}</point>
+          <point>Tuples use parentheses: (member1, member2)</point>
+          <point>FROM clause has cube name</point>
+        </check_points>
+      </step>
+      
+      <step order="2">
+        <action>Validate member IDs using get_cube_sample_members</action>
+      </step>
+      
+      <step order="3">
+        <action>Simplify query to isolate issue</action>
+        <approach>Start with minimal query, add complexity gradually</approach>
+      </step>
+      
+      <step order="4">
+        <action>Retry with corrected MDX</action>
+      </step>
+    </recovery_strategy>
+    
+    <prevention>
+      <measure>Use get_cube_sample_members to get exact member IDs</measure>
+      <measure>Follow MDX syntax patterns from examples</measure>
+      <measure>Test with simple queries first</measure>
+    </prevention>
+  </issue>
+
+  <issue id="authentication_failure" severity="high" frequency="rare">
+    <title>Authentication Failure</title>
+    <error_message>Unauthorized or Authentication failed</error_message>
+    
+    <symptoms>
+      <symptom>All MCP tool calls fail with auth error</symptom>
+      <symptom>401 Unauthorized response</symptom>
+    </symptoms>
+    
+    <root_cause>
+      <explanation>Authentication credentials are invalid or expired</explanation>
+      <common_causes>
+        <cause>Credentials expired</cause>
+        <cause>Wrong credentials configured</cause>
+        <cause>Server authentication settings changed</cause>
+      </common_causes>
+    </root_cause>
+    
+    <recovery_strategy>
+      <step order="1">
+        <action>Inform user of authentication issue</action>
+        <example>"I'm unable to connect to the Planning Analytics server due to authentication issues. This requires administrator attention."</example>
+      </step>
+      
+      <step order="2">
+        <action>Provide guidance on checking credentials</action>
+        <details>Check .bob/mcp.json for correct Authorization header</details>
+      </step>
+      
+      <step order="3">
+        <action>Offer non-MCP alternatives</action>
+        <alternatives>
+          <alternative>Provide conceptual guidance</alternative>
+          <alternative>Generate MDX queries user can run manually</alternative>
+          <alternative>Explain how to access data through Workspace</alternative>
+        </alternatives>
+      </step>
+    </recovery_strategy>
+    
+    <prevention>
+      <measure>Verify credentials are current</measure>
+      <measure>Test connection at start of session</measure>
+      <measure>Have fallback approaches ready</measure>
+    </prevention>
+  </issue>
+
+  <issue id="state_not_available" severity="low" frequency="occasional">
+    <title>State Not Available for Analysis</title>
+    <error_message>State required for this operation</error_message>
+    
+    <symptoms>
+      <symptom>perform_impact_analysis or perform_outlier_detection fails</symptom>
+      <symptom>User requests analysis without prior query</symptom>
+    </symptoms>
+    
+    <root_cause>
+      <explanation>Advanced analysis tools require state from previous query</explanation>
+      <technical_detail>State is encoded view configuration from get_data_from_data_explorer or execute_mdx_and_get_view</technical_detail>
+    </root_cause>
+    
+    <recovery_strategy>
+      <step order="1">
+        <action>Explain requirement to user</action>
+        <example>"To perform impact analysis, I first need to query the data. Let me get that for you."</example>
+      </step>
+      
+      <step order="2">
+        <action>Execute appropriate query to get state</action>
+        <use>Discovery → Query workflow</use>
+      </step>
+      
+      <step order="3">
+        <action>Proceed with requested analysis using obtained state</action>
+      </step>
+    </recovery_strategy>
+    
+    <prevention>
+      <measure>Always query data before attempting advanced analysis</measure>
+      <measure>Preserve state from queries for potential follow-up analysis</measure>
+    </prevention>
+  </issue>
+
+  <!-- GENERAL TROUBLESHOOTING GUIDELINES -->
+  <general_guidelines>
+    <guideline priority="critical">
+      <name>Never Leave User Stuck</name>
+      <description>Always provide a path forward, even if it's not the ideal solution</description>
+      <approaches>
+        <approach>Offer alternative methods</approach>
+        <approach>Provide manual workarounds</approach>
+        <approach>Explain how to accomplish task through Workspace UI</approach>
+      </approaches>
+    </guideline>
+    
+    <guideline priority="high">
+      <name>Communicate Clearly</name>
+      <description>Explain issues in user-friendly terms, not technical jargon</description>
+      <examples>
+        <bad>"Cube metadata indicates is_analyzed: false"</bad>
+        <good>"This cube isn't set up for natural language queries yet"</good>
+      </examples>
+    </guideline>
+    
+    <guideline priority="high">
+      <name>Fail Gracefully</name>
+      <description>When one approach fails, automatically try alternatives</description>
+      <pattern>Try → Fail → Recover → Continue (user shouldn't notice)</pattern>
+    </guideline>
+    
+    <guideline priority="medium">
+      <name>Learn from Errors</name>
+      <description>Use error information to improve subsequent attempts</description>
+      <examples>
+        <example>If member not found, use lookup for similar members</example>
+        <example>If cube not pre-analyzed, switch to MDX approach</example>
+      </examples>
+    </guideline>
+  </general_guidelines>
+
+  <!-- DIAGNOSTIC CHECKLIST -->
+  <diagnostic_checklist>
+    <category name="before_querying">
+      <check>Server is available (get_available_tm1_servers)</check>
+      <check>Cube exists (list_cubes_with_ai_analysis_metadata or get_tm1_cubes)</check>
+      <check>Cube pre-analysis status known</check>
+      <check>Dimensions identified (get_cube_dimensions)</check>
+      <check>Sample members reviewed (get_cube_sample_members)</check>
+    </category>
+    
+    <category name="when_query_fails">
+      <check>Error message indicates specific issue</check>
+      <check>Member IDs are correct (not aliases)</check>
+      <check>Dimension names are correct</check>
+      <check>Time period exists in data</check>
+      <check>MDX syntax is valid</check>
+    </category>
+    
+    <category name="when_no_data_returned">
+      <check>Query executed without error</check>
+      <check>Filters aren't too restrictive</check>
+      <check>Member combinations are valid</check>
+      <check>Data exists for requested criteria</check>
+    </category>
+  </diagnostic_checklist>
+
+</planning_analytics_troubleshooting>
+
+<!-- Made with Bob -->
