@@ -5,11 +5,11 @@
 1. [What you are getting](#1-what-you-are-getting)
 2. [How Bob's extension layers work](#2-how-bobs-extension-layers-work)
 3. [Prerequisites](#3-prerequisites)
-4. [Installation — step by step](#4-installation--step-by-step)
+4. [Installation](#4-installation--step-by-step)
 5. [Verify your setup](#5-verify-your-setup)
-6. [The Planning Analytics mode — what it unlocks](#6-the-planning-analytics-mode--what-it-unlocks)
-7. [Skills — what each one does and when to use it](#7-skills--what-each-one-does-and-when-to-use-it)
-8. [The MCP server — live TM1 server access](#8-the-mcp-server--live-tm1-server-access)
+6. [The Planning Analytics mode ](#6-the-planning-analytics-mode--what-it-unlocks)
+7. [Skills ](#7-skills--what-each-one-does-and-when-to-use-it)
+8. [The MCP server ](#8-the-mcp-server--live-tm1-server-access)
 9. [Typical workflows](#9-typical-workflows)
 10. [Quick-reference prompt guide](#10-quick-reference-prompt-guide)
 11. [Troubleshooting](#11-troubleshooting)
@@ -80,7 +80,7 @@ Before installing anything, it helps to understand how the three extension layer
 
 ---
 
-## 4. Installation — step by step
+## 4. Installation 
 
 ### Step 1 — Clone the repo into your Bob workspace
 
@@ -175,7 +175,7 @@ Run through this checklist before your first real task:
 
 ---
 
-## 6. The Planning Analytics mode — what it unlocks
+## 6. The Planning Analytics mode 
 
 Always start PA work in the `📊 Planning Analytics` mode. It does three things that the default Agent mode does not:
 
@@ -192,7 +192,7 @@ When Bob needs to verify a fact, it queries `ibm.com/docs/en/planning-analytics/
 
 ---
 
-## 7. Skills — what each one does and when to use it
+## 7. Skills 
 
 ### `tm1-accuracy` — Content verification
 **Use when:** Generating TM1 training content, writing rules or TI code examples, reviewing existing documentation or module content for correctness.
