@@ -39,7 +39,7 @@ Before installing anything, it helps to understand how the three extension layer
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    IBM Bob (the AI agent)                │
+│                    IBM Bob (the AI agent)               │
 ├─────────────┬───────────────────────┬───────────────────┤
 │   MODES     │        SKILLS         │    MCP SERVER     │
 │             │                       │                   │
