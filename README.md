@@ -190,6 +190,8 @@ When Bob needs to verify a fact, it queries `ibm.com/docs/en/planning-analytics/
 
 > **Rule of thumb:** If you are doing anything TM1-related in Bob — even just asking a conceptual question — switch to `📊 Planning Analytics` mode first.
 
+👉 See [`bob-modes/planning-analytics-mode/rules-planning-analytics/README.md`](bob-modes/planning-analytics-mode/rules-planning-analytics/README.md)
+
 ---
 
 ## 7. Skills 
@@ -206,7 +208,7 @@ Trigger: "Check this for accuracy"
          "Generate accurate TM1 content"
 ```
 
-👉 See [`skills/tm1-accuracy/README.md`](.bob/skills/tm1-accuracy/README.md)
+👉 See [`bob-skills/tm1-accuracy/README.md`](bob-skills/tm1-accuracy/README.md)
 
 ---
 
@@ -223,7 +225,7 @@ Trigger: "Design a TM1 model for..."
          "Review the architecture of this model"
 ```
 
-👉 See [`skills/tm1-model-design/README.md`](.bob/skills/tm1-model-design/README.md)
+👉 See [`bob-skills/tm1-model-design/README.md`](bob-skills/tm1-model-design/README.md)
 
 ---
 
@@ -242,7 +244,7 @@ Trigger: "Validate the model"
          "Compare these two models"
 ```
 
-👉 See [`skills/tm1-model-validation/README.md`](.bob/skills/tm1-model-validation/README.md)
+👉 See [`bob-skills/tm1-model-validation/README.md`](bob-skills/tm1-model-validation/README.md)
 
 ---
 
@@ -257,7 +259,7 @@ Trigger: "Connect to Planning Analytics from Python"
          "Execute a TI process via REST"
          "Getting a 302 redirect on TM1 API calls"
 ```
-
+👉 See [`bob-skills/ibm-planning-analytics/USAGE-GUIDE.md`](bob-skills/ibm-planning-analytics/README.md)
 ---
 
 ### `planning-analytics` — Natural language data exploration
@@ -271,7 +273,7 @@ Trigger: "Show me freight costs by route for Q1 2025"
          "Are there any outliers in the headcount data?"
 ```
 
-👉 See [`skills/planning-analytics/USAGE-GUIDE.md`](.bob/skills/planning-analytics/USAGE-GUIDE.md)
+👉 See [`bob-skills/planning-analytics/USAGE-GUIDE.md`](bob-skills/planning-analytics/USAGE-GUIDE.md)
 
 ---
 
