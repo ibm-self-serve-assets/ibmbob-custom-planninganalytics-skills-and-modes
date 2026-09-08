@@ -52,7 +52,7 @@ Before installing anything, it helps to understand how the three extension layer
 │ Analogy:    │ Analogy:              │ Analogy:          │
 │ A TM1       │ A reference file      │ A TI data source  │
 │ security    │ loaded into a TI      │ connection —      │
-│ role        │ process at runtime    │ live, bidirectional│
+│ role        │ process at runtime    │live, bidirectional│
 └─────────────┴───────────────────────┴───────────────────┘
 ```
 
@@ -490,7 +490,7 @@ The `latest` alias resolves to the current GA release. If a version-specific URL
 | [`bob-skills/tm1-model-validation/README.md`](bob-skills/tm1-model-validation/README.md) | Validation modes, phases, verdicts, examples |
 | [`bob-skills/planning-analytics/USAGE-GUIDE.md`](bob-skills/planning-analytics/USAGE-GUIDE.md) | Natural language data exploration patterns and examples |
 | [`bob-skills/ibm-planning-analytics/README.md`](bob-skills/planning-analytics/USAGE-GUIDE.md) | Natural language data exploration patterns and examples |
-| [`bob-modes/planning-analytics-mode/rules-planning-analytics/README.md`](bob-modes/ibm-planning-analytics-mode/rules-planning-analytics/README.md) | Natural language data exploration patterns and examples |
+| [`bob-modes/planning-analytics-mode/rules-planning-analytics/README.md`](bob-modes/planning-analytics-mode/rules-planning-analytics/README.md) | Natural language data exploration patterns and examples |
 | [IBM Planning Analytics documentation](https://www.ibm.com/docs/en/planning-analytics/latest) | Authoritative IBM source — all skill content is grounded here |
 | [TM1py on GitHub](https://github.com/cubewise-code/tm1py) | Python SDK used by the validation script |
 | [Create Custom Skills](https://bob.ibm.com/docs/ide/tutorials/use-skills) | Create your own custom skills |
