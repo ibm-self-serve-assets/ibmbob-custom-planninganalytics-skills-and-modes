@@ -19,6 +19,7 @@
 9. [Typical workflows](#9-typical-workflows)
 10. [Quick-reference prompt guide](#10-quick-reference-prompt-guide)
 11. [Troubleshooting](#11-troubleshooting)
+12. [Related Documentation](#12-related-documentation)
 
 ---
 
@@ -491,7 +492,7 @@ The `latest` alias resolves to the current GA release. If a version-specific URL
 
 ---
 
-## Related documentation
+##  12. Related documentation
 
 | Resource | What it covers |
 |---|---|
