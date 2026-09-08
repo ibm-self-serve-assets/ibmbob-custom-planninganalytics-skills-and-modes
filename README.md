@@ -1,11 +1,5 @@
 # Getting Started — IBM Bob for Planning Analytics
 
-**For:** KPMG Australia — Planning Analytics Practice  
-**Audience:** Experienced PA/TM1 practitioners new to IBM Bob  
-**Purpose:** Get Bob's MCP server, modes, and skills working for TM1 tasks in under 30 minutes
-
----
-
 ## Table of Contents
 
 1. [What you are getting](#1-what-you-are-getting)
@@ -488,75 +482,18 @@ The `latest` alias resolves to the current GA release. If a version-specific URL
 
 ---
 
-## 12. Repo structure
-
-```
-pa-bob-skills/
-│
-├── GETTING-STARTED.md                    ← This file
-│
-├── .bob/
-│   ├── mcp.json                          ← MCP server config (edit with your endpoint)
-│   └── skills/
-│       │
-│       ├── tm1-accuracy/
-│       │   ├── SKILL.md                  ← Skill definition (loaded by Bob)
-│       │   ├── README.md                 ← Human-readable documentation
-│       │   └── references/
-│       │       ├── rules-and-feeders.md
-│       │       ├── ti-processes.md
-│       │       ├── mdx-and-subsets.md
-│       │       ├── dimensions-and-modelling.md
-│       │       ├── security.md
-│       │       └── review-workflow.md
-│       │
-│       ├── tm1-model-design/
-│       │   ├── SKILL.md
-│       │   ├── README.md
-│       │   └── references/
-│       │       ├── 01-dimensional-modelling.md
-│       │       ├── 02-driver-based-patterns.md
-│       │       ├── 03-rules-and-feeder-architecture.md
-│       │       ├── 04-ti-process-design.md
-│       │       ├── 05-paw-book-and-view-design.md
-│       │       ├── 06-naming-conventions.md
-│       │       └── 07-implementation-sequencing.md
-│       │
-│       ├── tm1-model-validation/
-│       │   ├── SKILL.md
-│       │   ├── README.md
-│       │   ├── references/
-│       │   │   ├── intrinsic-checks.md
-│       │   │   ├── checklist.md
-│       │   │   ├── rules-and-feeders.md
-│       │   │   └── report-template.md
-│       │   └── scripts/
-│       │       ├── tm1_validate.py       ← Automated validation script
-│       │       ├── requirements.txt      ← pip install -r requirements.txt
-│       │       ├── spec.example.json     ← Template for your spec.json
-│       │       └── README-spec.md        ← How to write a spec.json
-│       │
-│       ├── ibm-planning-analytics/
-│       │   ├── SKILL.md
-│       │   ├── README.md
-│       │   └── references/               ← REST API, auth, TM1py patterns
-│       │
-│       └── planning-analytics/
-│           ├── SKILL.md
-│           ├── README.md
-│           └── USAGE-GUIDE.md            ← Detailed data exploration guide
-```
-
----
-
 ## Related documentation
 
 | Resource | What it covers |
 |---|---|
-| [`skills/tm1-accuracy/README.md`](.bob/skills/tm1-accuracy/README.md) | Full skill documentation — checks, examples, troubleshooting |
-| [`skills/tm1-model-design/README.md`](.bob/skills/tm1-model-design/README.md) | Design methodology, examples, output formats |
-| [`skills/tm1-model-validation/README.md`](.bob/skills/tm1-model-validation/README.md) | Validation modes, phases, verdicts, examples |
-| [`skills/tm1-model-validation/scripts/README-spec.md`](.bob/skills/tm1-model-validation/scripts/README-spec.md) | How to write `spec.json` for conformance and intrinsic runs |
-| [`skills/planning-analytics/USAGE-GUIDE.md`](.bob/skills/planning-analytics/USAGE-GUIDE.md) | Natural language data exploration patterns and examples |
+| [`bob-skills/tm1-accuracy/README.md`](bob-skills/tm1-accuracy/README.md) | Full skill documentation — checks, examples, troubleshooting |
+| [`bob-skills/tm1-model-design/README.md`](bob-skills/tm1-model-design/README.md) | Design methodology, examples, output formats |
+| [`bob-skills/tm1-model-validation/README.md`](bob-skills/tm1-model-validation/README.md) | Validation modes, phases, verdicts, examples |
+| [`bob-skills/planning-analytics/USAGE-GUIDE.md`](bob-skills/planning-analytics/USAGE-GUIDE.md) | Natural language data exploration patterns and examples |
+| [`bob-skills/ibm-planning-analytics/README.md`](bob-skills/planning-analytics/USAGE-GUIDE.md) | Natural language data exploration patterns and examples |
+| [`bob-modes/ibm-planning-analytics-mode/rules-planning-analytics/README.md`](bob-modes/ibm-planning-analytics-mode/rules-planning-analytics/README.md) | Natural language data exploration patterns and examples |
 | [IBM Planning Analytics documentation](https://www.ibm.com/docs/en/planning-analytics/latest) | Authoritative IBM source — all skill content is grounded here |
 | [TM1py on GitHub](https://github.com/cubewise-code/tm1py) | Python SDK used by the validation script |
+| [Create Custom Skills](https://bob.ibm.com/docs/ide/tutorials/use-skills) | Create your own custom skills |
+| [Create Custom Modes](https://bob.ibm.com/docs/ide/tutorials/add-bob-capabilities) | Add capabilities to Bob by adding your own custom mode |
+
