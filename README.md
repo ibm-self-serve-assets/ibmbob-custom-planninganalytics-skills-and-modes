@@ -5,11 +5,17 @@
 1. [What you are getting](#1-what-you-are-getting)
 2. [How Bob's extension layers work](#2-how-bobs-extension-layers-work)
 3. [Prerequisites](#3-prerequisites)
-4. [Installation](#4-installation--step-by-step)
+4. [Installation](#4-installation)
 5. [Verify your setup](#5-verify-your-setup)
-6. [The Planning Analytics mode ](#6-the-planning-analytics-mode--what-it-unlocks)
-7. [Skills ](#7-skills--what-each-one-does-and-when-to-use-it)
-8. [The MCP server ](#8-the-mcp-server--live-tm1-server-access)
+6. [The Planning Analytics mode ](#6-the-planning-analytics-mode)
+7. [Skills](#7-skills)
+   - [`tm1-accuracy` — Content verification](#tm1-accuracy--content-verification)
+   - [`tm1-model-design` — Architecture and design](#tm1-model-design--architecture-and-design)
+   - [`tm1-model-validation` — Post-build verification](#tm1-model-validation--post-build-verification)
+   - [`ibm-planning-analytics` — REST API reference](#ibm-planning-analytics--rest-api-reference)
+   - [`planning-analytics` — Natural language data exploration](#planning-analytics--natural-language-data-exploration)
+   - [Using multiple skills together](#using-multiple-skills-together)
+8. [The MCP server ](#8-the-mcp-server)
 9. [Typical workflows](#9-typical-workflows)
 10. [Quick-reference prompt guide](#10-quick-reference-prompt-guide)
 11. [Troubleshooting](#11-troubleshooting)
@@ -259,7 +265,9 @@ Trigger: "Connect to Planning Analytics from Python"
          "Execute a TI process via REST"
          "Getting a 302 redirect on TM1 API calls"
 ```
+
 👉 See [`bob-skills/ibm-planning-analytics/USAGE-GUIDE.md`](bob-skills/ibm-planning-analytics/README.md)
+
 ---
 
 ### `planning-analytics` — Natural language data exploration
@@ -290,7 +298,7 @@ Bob will load and cross-reference multiple skills in the same conversation. You 
 
 ---
 
-## 8. The MCP server — live TM1 server access
+## 8. The MCP server 
 
 The IBM PA MCP server is what gives Bob live access to your TM1 databases. Without it, Bob can design, review, and validate code — but cannot query data, execute processes, or run the automated validation sweep.
 
