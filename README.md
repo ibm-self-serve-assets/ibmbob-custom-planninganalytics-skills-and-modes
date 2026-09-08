@@ -13,7 +13,6 @@
 9. [Typical workflows](#9-typical-workflows)
 10. [Quick-reference prompt guide](#10-quick-reference-prompt-guide)
 11. [Troubleshooting](#11-troubleshooting)
-12. [Repo structure](#12-repo-structure)
 
 ---
 
@@ -491,7 +490,7 @@ The `latest` alias resolves to the current GA release. If a version-specific URL
 | [`bob-skills/tm1-model-validation/README.md`](bob-skills/tm1-model-validation/README.md) | Validation modes, phases, verdicts, examples |
 | [`bob-skills/planning-analytics/USAGE-GUIDE.md`](bob-skills/planning-analytics/USAGE-GUIDE.md) | Natural language data exploration patterns and examples |
 | [`bob-skills/ibm-planning-analytics/README.md`](bob-skills/planning-analytics/USAGE-GUIDE.md) | Natural language data exploration patterns and examples |
-| [`bob-modes/ibm-planning-analytics-mode/rules-planning-analytics/README.md`](bob-modes/ibm-planning-analytics-mode/rules-planning-analytics/README.md) | Natural language data exploration patterns and examples |
+| [`bob-modes/planning-analytics-mode/rules-planning-analytics/README.md`](bob-modes/ibm-planning-analytics-mode/rules-planning-analytics/README.md) | Natural language data exploration patterns and examples |
 | [IBM Planning Analytics documentation](https://www.ibm.com/docs/en/planning-analytics/latest) | Authoritative IBM source — all skill content is grounded here |
 | [TM1py on GitHub](https://github.com/cubewise-code/tm1py) | Python SDK used by the validation script |
 | [Create Custom Skills](https://bob.ibm.com/docs/ide/tutorials/use-skills) | Create your own custom skills |
